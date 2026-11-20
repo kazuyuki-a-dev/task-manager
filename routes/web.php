@@ -1,11 +1,13 @@
 <?php
 
+use App\Http\Controllers\Admin\CalendarController as AdminCalendarController;
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\LoginController;
 use App\Http\Controllers\Admin\MemberController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\BoardController;
+use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\OrderAssigneeController;
 use App\Http\Controllers\OrderController;
@@ -30,6 +32,9 @@ Route::delete('/orders/{order}/assignees/{user}', [OrderAssigneeController::clas
 // 完了の履歴（R-10）。だれでも見られる
 Route::get('/history', HistoryController::class)->name('history');
 
+// 会社カレンダー（R-13）。だれでも見られる
+Route::get('/calendar', CalendarController::class)->name('calendar');
+
 // 管理者（R-06）。パスワードを入れた管理者だけが使える
 Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/login', [LoginController::class, 'show'])->name('login');
@@ -38,6 +43,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     Route::middleware(EnsureAdminSession::class)->group(function () {
         Route::get('/', fn () => Inertia::render('admin/Home'))->name('home');
+
+        // 会社カレンダーに休みと行事を足す・取り消す（R-13）。カレンダーの日付の小さな画面から使う
+        Route::post('/absences', [AdminCalendarController::class, 'storeAbsence'])->name('absences.store');
+        Route::delete('/absences/{absence}', [AdminCalendarController::class, 'destroyAbsence'])->name('absences.destroy');
+        Route::post('/calendar-events', [AdminCalendarController::class, 'storeEvent'])->name('calendar-events.store');
+        Route::delete('/calendar-events/{event}', [AdminCalendarController::class, 'destroyEvent'])->name('calendar-events.destroy');
 
         // 社員の登録（R-07）
         Route::get('/members', [MemberController::class, 'index'])->name('members.index');
