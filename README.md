@@ -37,3 +37,4 @@ http://localhost を開くと画面が出ます。
 | [要件定義書](docs/requirements.md) | 目的、優先度、完成の境界、要件の対応表 |
 | [決めたことの記録](docs/decisions.md) | 決めたことと、その理由 |
 | [運用の手順書](docs/operations.md) | バックアップのしくみ、戻し方、機械が決まったらやること |
+| [バックアップと復元の手順書](docs/backup-and-recovery.md) | ターミナルに打つものまで書いた、ステップ方式の手順（PC がこわれたときの戻し方も） |
