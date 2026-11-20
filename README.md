@@ -1,4 +1,4 @@
-# task-manager
+# タスクマネージャー（task-manager）
 
 [![CI](https://github.com/kazuyuki-a-dev/task-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/kazuyuki-a-dev/task-manager/actions/workflows/ci.yml)
 
