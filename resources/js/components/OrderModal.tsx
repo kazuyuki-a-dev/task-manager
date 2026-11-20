@@ -63,7 +63,7 @@ export default function OrderModal({ order, members, products, errors, onClose }
                             {pageError}
                         </p>
                     )}
-                    <StatusSection order={order} />
+                    <StatusSection order={order} onClose={onClose} />
                     <AssigneeSection order={order} members={members} />
                     <DetailForm order={order} products={products} />
                 </div>
@@ -76,12 +76,19 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
     return <h3 className="mb-2 text-sm font-semibold text-gray-500">{children}</h3>;
 }
 
-type StatusAction = { next: OrderStatus; label: string; style: string };
+type StatusAction = {
+    next: OrderStatus;
+    label: string;
+    style: string;
+    /** うまく変わったら、小さな画面を閉じる */
+    closeAfter?: boolean;
+};
 
 // 左が戻すボタン、右がすすめるボタン。
 // 完了 → 作業中に戻すボタンは、完了した指示が出る履歴の画面に置く（D-024）
 const STATUS_ACTIONS: Record<OrderStatus, StatusAction[]> = {
-    not_started: [{ next: 'in_progress', label: '作業を始める', style: 'bg-blue-600 text-white hover:bg-blue-700' }],
+    // 作業を始めたら、そのまま小さな画面を閉じる
+    not_started: [{ next: 'in_progress', label: '作業を始める', style: 'bg-blue-600 text-white hover:bg-blue-700', closeAfter: true }],
     in_progress: [
         // まちがえて始めたときに戻す（D-025）。すすめるボタンと見分けやすいように、白地の枠線にする
         { next: 'not_started', label: '未着手に戻す', style: 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50' },
@@ -97,14 +104,16 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
 };
 
 /** 状態を変える（R-04） */
-function StatusSection({ order }: { order: Order }) {
+function StatusSection({ order, onClose }: { order: Order; onClose: () => void }) {
     const [processing, setProcessing] = useState(false);
 
-    const change = (next: OrderStatus) => {
-        router.patch(`/orders/${order.id}/status`, { status: next }, {
+    const change = (action: StatusAction) => {
+        router.patch(`/orders/${order.id}/status`, { status: action.next }, {
             ...KEEP_SCROLL,
             onStart: () => setProcessing(true),
             onFinish: () => setProcessing(false),
+            // 変えられなかったとき（ほかの端末で先に変わっていたなど）は、理由が見えるように閉じない
+            onSuccess: () => action.closeAfter && onClose(),
         });
     };
 
@@ -117,7 +126,7 @@ function StatusSection({ order }: { order: Order }) {
                     <button
                         key={action.next}
                         type="button"
-                        onClick={() => change(action.next)}
+                        onClick={() => change(action)}
                         disabled={processing}
                         className={`rounded-lg px-4 py-2.5 text-sm font-bold disabled:opacity-50 ${action.style}`}
                     >
