@@ -82,6 +82,8 @@ class HistoryController extends Controller
             ->whereHas('orders', $done)
             ->when($companyId !== null, fn (Builder $query) => $query->where('company_id', $companyId))
             ->withCount(['orders as done_count' => $done])
+            // 総台数：完了した指示の数量の合計
+            ->withSum(['orders as done_quantity' => $done], 'quantity')
             ->withMax(['orders as last_completed_at' => $done], 'completed_at')
             ->when($q !== '', function (Builder $query) use ($q) {
                 // 「%」や「_」を打っても、何にでも合う印として扱われないようにする
@@ -103,6 +105,7 @@ class HistoryController extends Controller
                 'code' => $product->code,
                 'name' => $product->name,
                 'doneCount' => $product->done_count,
+                'doneQuantity' => (int) $product->done_quantity,
                 'lastCompletedAt' => Carbon::parse($product->last_completed_at)->format('Y-m-d H:i'),
                 'isDummy' => $product->is_dummy,
             ])->all(),
@@ -114,7 +117,7 @@ class HistoryController extends Controller
 
     /**
      * 小さな画面に出す、1つの製品の完了した指示。納期の新しい順。
-     * たくさんたまるので、1件は「年・納期・作業者」だけにする（D-038）
+     * たくさんたまるので、1件は「年・納期・台数・作業者」だけにする（D-038・D-039）
      *
      * @return array<string, mixed>|null
      */
@@ -135,6 +138,8 @@ class HistoryController extends Controller
             'code' => $product->code,
             'name' => $product->name,
             'total' => (clone $done)->count(),
+            // 総台数は、小さな画面に出す100件だけでなく、完了した指示すべての合計
+            'totalQuantity' => (int) (clone $done)->sum('quantity'),
             'limit' => self::ORDERS_LIMIT,
             'orders' => $done
                 ->with('assignees:id,name')
@@ -147,6 +152,8 @@ class HistoryController extends Controller
                     'id' => $order->id,
                     // 画面では「2026年 納期 11/16(月)」のように、納期の年と日付を出す
                     'dueDate' => $order->due_date->toDateString(),
+                    // 注文時の台数
+                    'quantity' => $order->quantity,
                     // 消した社員の名前も残す（D-036）
                     'assignees' => $order->assignees->map(fn (User $user) => $user->name)->all(),
                 ])

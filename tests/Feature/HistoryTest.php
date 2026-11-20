@@ -48,17 +48,17 @@ class HistoryTest extends TestCase
         $old = Product::factory()->create(['company_id' => $company->id, 'code' => 'AA-0001', 'name' => '前に完了']);
         $new = Product::factory()->create(['company_id' => $company->id, 'code' => null, 'name' => '最近完了']);
         $notDone = Product::factory()->create(['name' => 'まだ作業中']);
-        $this->done($old, '2026-11-10 17:00:00');
-        $this->done($old, '2026-11-12 16:30:00');
-        $this->done($new, '2026-11-19 09:15:00');
+        $this->done($old, '2026-11-10 17:00:00', ['quantity' => 30]);
+        $this->done($old, '2026-11-12 16:30:00', ['quantity' => 45]);
+        $this->done($new, '2026-11-19 09:15:00', ['quantity' => 100]);
         ProductionOrder::factory()->status(OrderStatus::InProgress)->create(['product_id' => $notDone->id]);
-        // 完了でない指示は、完了した数に入れない
-        ProductionOrder::factory()->status(OrderStatus::NotStarted)->create(['product_id' => $old->id]);
+        // 完了でない指示は、完了した数にも総台数にも入れない
+        ProductionOrder::factory()->status(OrderStatus::NotStarted)->create(['product_id' => $old->id, 'quantity' => 999]);
 
         $this->get('/history')->assertInertia(fn (Assert $page) => $page
             ->where('products.total', 2)
-            ->where('products.data.0', ['id' => $new->id, 'companyName' => 'ダミー東和工業', 'code' => null, 'name' => '最近完了', 'doneCount' => 1, 'lastCompletedAt' => '2026-11-19 09:15', 'isDummy' => false])
-            ->where('products.data.1', ['id' => $old->id, 'companyName' => 'ダミー東和工業', 'code' => 'AA-0001', 'name' => '前に完了', 'doneCount' => 2, 'lastCompletedAt' => '2026-11-12 16:30', 'isDummy' => false])
+            ->where('products.data.0', ['id' => $new->id, 'companyName' => 'ダミー東和工業', 'code' => null, 'name' => '最近完了', 'doneCount' => 1, 'doneQuantity' => 100, 'lastCompletedAt' => '2026-11-19 09:15', 'isDummy' => false])
+            ->where('products.data.1', ['id' => $old->id, 'companyName' => 'ダミー東和工業', 'code' => 'AA-0001', 'name' => '前に完了', 'doneCount' => 2, 'doneQuantity' => 75, 'lastCompletedAt' => '2026-11-12 16:30', 'isDummy' => false])
             ->where('selected', null)
         );
     }
@@ -158,8 +158,8 @@ class HistoryTest extends TestCase
     public function test_selected_product_shows_its_done_orders_newest_first(): void
     {
         $product = Product::factory()->create(['name' => 'シャフト']);
-        $older = $this->done($product, '2026-11-10 17:00:00', ['due_date' => '2026-11-11']);
-        $newer = $this->done($product, '2026-11-15 12:00:00', ['due_date' => '2026-11-16']);
+        $older = $this->done($product, '2026-11-10 17:00:00', ['due_date' => '2026-11-11', 'quantity' => 50]);
+        $newer = $this->done($product, '2026-11-15 12:00:00', ['due_date' => '2026-11-16', 'quantity' => 80]);
         $a = User::factory()->create(['name' => '山田 太郎']);
         $b = User::factory()->create(['name' => '佐藤 花子']);
         $newer->assignees()->attach([$a->id, $b->id]);
@@ -171,10 +171,12 @@ class HistoryTest extends TestCase
             ->where('selected.id', $product->id)
             ->where('selected.name', 'シャフト')
             ->where('selected.total', 2)
+            ->where('selected.totalQuantity', 130)
             ->has('selected.orders', 2)
             ->where('selected.orders.0', [
                 'id' => $newer->id,
                 'dueDate' => '2026-11-16',
+                'quantity' => 80,
                 'assignees' => ['山田 太郎', '佐藤 花子'],
             ])
             ->where('selected.orders.1.id', $older->id)
@@ -212,15 +214,19 @@ class HistoryTest extends TestCase
             ->where('selected.orders.0.assignees', ['辞めた人']));
     }
 
-    public function test_selected_orders_are_limited_to_the_newest(): void
+    /**
+     * 小さな画面に出すのは新しいもの100件まで。総台数は、出していない分も入れた、完了した指示すべての合計
+     */
+    public function test_selected_orders_are_limited_but_total_quantity_counts_all(): void
     {
         $product = Product::factory()->create();
         ProductionOrder::factory()->count(HistoryController::ORDERS_LIMIT + 1)->status(OrderStatus::Done)
             ->sequence(fn ($s) => ['completed_at' => now()->subMinutes($s->index)])
-            ->create(['product_id' => $product->id]);
+            ->create(['product_id' => $product->id, 'quantity' => 10]);
 
         $this->get("/history?product={$product->id}")->assertInertia(fn (Assert $page) => $page
             ->where('selected.total', HistoryController::ORDERS_LIMIT + 1)
+            ->where('selected.totalQuantity', (HistoryController::ORDERS_LIMIT + 1) * 10)
             ->has('selected.orders', HistoryController::ORDERS_LIMIT));
     }
 

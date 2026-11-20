@@ -11,6 +11,8 @@ type ProductCard = {
     name: string;
     /** 完了した指示の数 */
     doneCount: number;
+    /** 総台数（完了した指示の数量の合計） */
+    doneQuantity: number;
     /** 'YYYY-MM-DD HH:mm'。最後に完了した日時 */
     lastCompletedAt: string;
     isDummy: boolean;
@@ -20,6 +22,8 @@ type DoneOrder = {
     id: number;
     /** 'YYYY-MM-DD' */
     dueDate: string;
+    /** 注文時の台数 */
+    quantity: number;
     /** 担当した人の名前（全員。消した社員も残る） */
     assignees: string[];
 };
@@ -30,6 +34,8 @@ type Selected = {
     code: string | null;
     name: string;
     total: number;
+    /** 総台数（完了した指示すべての数量の合計） */
+    totalQuantity: number;
     limit: number;
     orders: DoneOrder[];
 };
@@ -117,9 +123,16 @@ export default function History({ q, companyId, companies, products, selected, e
                                             <span className="block truncate font-semibold text-gray-900">{product.name}</span>
                                             <span className="block text-sm text-gray-500">最後の完了 {formatDateTime(product.lastCompletedAt)}</span>
                                         </span>
-                                        <span className="shrink-0 text-right">
-                                            <span className="block text-3xl font-bold leading-none text-gray-900">{product.doneCount}</span>
-                                            <span className="text-sm text-gray-500">完了</span>
+                                        <span className="flex shrink-0 items-end gap-3 text-right">
+                                            <span>
+                                                <span className="block text-3xl font-bold leading-none text-gray-900">{product.doneCount}</span>
+                                                <span className="text-sm text-gray-500">完了</span>
+                                            </span>
+                                            {/* 完了件数の右に、総台数 */}
+                                            <span>
+                                                <span className="block text-lg font-bold leading-none text-gray-700">{product.doneQuantity.toLocaleString()}</span>
+                                                <span className="text-sm text-gray-500">総台数</span>
+                                            </span>
                                         </span>
                                     </button>
                                 </li>
@@ -191,6 +204,8 @@ function Filters({ q, companyId, companies }: { q: string; companyId: number | n
  */
 function HistoryModal({ selected, errors, onClose }: { selected: Selected; errors: PageErrors; onClose: () => void }) {
     const [processingId, setProcessingId] = useState<number | null>(null);
+    // 「作業者」を押した指示。もう1つ小さな画面を重ねて、作業メンバーを出す
+    const [membersOf, setMembersOf] = useState<DoneOrder | null>(null);
 
     // まちがえて完了にしたときに戻す（D-024）。戻すと、完了した日は消え、ボードの「作業中」に出る
     const reopen = (order: DoneOrder) => {
@@ -206,7 +221,7 @@ function HistoryModal({ selected, errors, onClose }: { selected: Selected; error
     return (
         <Modal
             title={selected.name}
-            subtitle={`${selected.companyName}${selected.code ? `・${selected.code}` : ''}　完了 ${selected.total}件`}
+            subtitle={`${selected.companyName}${selected.code ? `・${selected.code}` : ''}　完了 ${selected.total}件　総台数 ${selected.totalQuantity.toLocaleString()}台`}
             onClose={onClose}
         >
             {errors.status && (
@@ -222,7 +237,16 @@ function HistoryModal({ selected, errors, onClose }: { selected: Selected; error
                         <li key={order.id} className="flex items-center gap-3 py-2 text-sm">
                             <span className="w-14 shrink-0 font-semibold text-gray-900">{order.dueDate.slice(0, 4)}年</span>
                             <span className="w-28 shrink-0 text-gray-900">納期 {formatDate(order.dueDate)}</span>
-                            <span className="min-w-0 flex-1 text-gray-700">{order.assignees.length > 0 ? order.assignees.join('、') : 'なし'}</span>
+                            {/* 納期の右に、注文時の台数 */}
+                            <span className="min-w-0 flex-1 text-right font-medium text-gray-900">{order.quantity.toLocaleString()}台</span>
+                            <button
+                                type="button"
+                                onClick={() => setMembersOf(order)}
+                                aria-label={`納期 ${formatDate(order.dueDate)} の作業者を見る`}
+                                className="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                            >
+                                作業者
+                            </button>
                             <button
                                 type="button"
                                 onClick={() => reopen(order)}
@@ -238,6 +262,28 @@ function HistoryModal({ selected, errors, onClose }: { selected: Selected; error
             )}
             {selected.total > selected.limit && (
                 <p className="text-sm text-gray-500">新しいもの{selected.limit}件だけを出しています</p>
+            )}
+
+            {membersOf && (
+                <Modal
+                    size="sm"
+                    title="作業者"
+                    subtitle={`${membersOf.dueDate.slice(0, 4)}年 納期 ${formatDate(membersOf.dueDate)}　${membersOf.quantity.toLocaleString()}台`}
+                    onClose={() => setMembersOf(null)}
+                >
+                    {membersOf.assignees.length === 0 ? (
+                        <p className="text-gray-500">記録がありません</p>
+                    ) : (
+                        <ul className="space-y-1">
+                            {membersOf.assignees.map((name, index) => (
+                                // 同じ名前の人がいても重ならないように、何番目かも印に入れる
+                                <li key={`${index}-${name}`} className="rounded-lg bg-gray-50 px-3 py-2 font-medium text-gray-900">
+                                    {name}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </Modal>
             )}
         </Modal>
     );
