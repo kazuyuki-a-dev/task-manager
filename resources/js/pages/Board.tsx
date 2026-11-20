@@ -57,16 +57,28 @@ function DeadlineBadge({ order }: { order: Order }) {
     );
 }
 
-/** カードの担当は1行におさめる。何人もいるときは「山田 太郎 ほか2人」。全員の名前はミニ画面で見る */
-function shortAssignees(order: Order): string {
-    const [first, ...rest] = order.assignees;
-    if (!first) return '未割り当て';
-    return rest.length > 0 ? `${first.name} ほか${rest.length}人` : first.name;
+/**
+ * カードの担当は、全員の名前を出す。1人の名前の途中では改行しない
+ * （日本語はどこでも改行されてしまうので、名前ごとにまとめる）
+ */
+function AssigneeNames({ order }: { order: Order }) {
+    if (order.assignees.length === 0) return <>未割り当て</>;
+    return (
+        <>
+            {order.assignees.map((member, index) => (
+                <span key={member.id} className="whitespace-nowrap">
+                    {member.name}
+                    {index < order.assignees.length - 1 && '、'}
+                </span>
+            ))}
+        </>
+    );
 }
 
 /**
  * カードは見るだけ。押すと小さな画面が開く（D-028）。
- * どのカードも同じ高さになるように、行の数を決めておき、長い文字は1行で「…」にする
+ * どのカードも同じ高さになるように、行の数を決めておく。品名は1行で「…」にし、
+ * 担当は2行ぶんの高さをとっておく（それより多いときだけ、名前を隠さずにカードが高くなる）
  */
 function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void }) {
     const highlight = order.deadline ? DEADLINE_STYLES[order.deadline].card : '';
@@ -105,8 +117,9 @@ function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void }) {
                     <dt className="text-gray-500">納期</dt>
                     <dd className="font-medium text-gray-900">{formatDate(order.dueDate)}</dd>
                     <dt className="text-gray-500">担当</dt>
-                    <dd className={`truncate ${order.assignees.length > 0 ? 'text-gray-900' : 'text-red-700'}`}>
-                        {shortAssignees(order)}
+                    {/* 2行ぶん（text-sm の行の高さ 1.25rem × 2）の高さをとっておく */}
+                    <dd className={`min-h-[2.5rem] ${order.assignees.length > 0 ? 'text-gray-900' : 'text-red-700'}`}>
+                        <AssigneeNames order={order} />
                     </dd>
                 </dl>
             </button>
