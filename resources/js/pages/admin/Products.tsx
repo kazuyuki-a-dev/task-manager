@@ -49,20 +49,16 @@ export default function Products({ q, companyId, companies, products }: Props) {
                     ← 管理者の画面に戻る
                 </Link>
 
-                {companies.length === 0 ? (
-                    <p className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
-                        製品は、どこかの取引会社のものとして登録します。先に
-                        <Link href="/admin/companies" className="mx-1 font-semibold underline">
-                            取引会社
-                        </Link>
-                        を登録してください。
-                    </p>
-                ) : (
-                    <>
-                        <Filters q={q} companyId={companyId} companies={companies} />
-                        <AddForm companies={companies} companyId={companyId} />
-                    </>
-                )}
+                {/* 製品を足すのは取引会社の画面から（D-034） */}
+                <p className="text-sm text-gray-600">
+                    製品を足すときは、
+                    <Link href="/admin/companies" className="mx-1 font-semibold text-blue-700 underline">
+                        取引会社
+                    </Link>
+                    の画面から足します。
+                </p>
+
+                {companies.length > 0 && <Filters q={q} companyId={companyId} companies={companies} />}
 
                 <section className="space-y-3">
                     {errors.product && (
@@ -149,46 +145,6 @@ function CompanySelect({ companies, value, onChange, error }: { companies: Compa
             </select>
             {error && <span className="mt-1 block text-sm text-red-700">{error}</span>}
         </label>
-    );
-}
-
-/** 製品を足す。上で取引会社を選んでいれば、その会社をはじめから選んでおく */
-function AddForm({ companies, companyId }: { companies: Company[]; companyId: number | null }) {
-    const form = useForm({ company_id: companyId ? String(companyId) : '', code: '', name: '' });
-
-    // 上の取引会社を選びなおしたら、足す先もそれに合わせる
-    useEffect(() => {
-        form.setData('company_id', companyId ? String(companyId) : '');
-    }, [companyId]);
-
-    const submit = (event: React.FormEvent) => {
-        event.preventDefault();
-        form.post('/admin/products', {
-            preserveScroll: true,
-            onSuccess: () => form.reset('code', 'name'),
-        });
-    };
-
-    return (
-        <form onSubmit={submit} className="rounded-lg border border-gray-200 bg-white p-4">
-            <h2 className="mb-3 font-semibold text-gray-900">製品を足す</h2>
-            <div className="grid gap-3 sm:grid-cols-[1fr_9rem_1fr_auto] sm:items-start">
-                <CompanySelect companies={companies} value={form.data.company_id} onChange={(v) => form.setData('company_id', v)} error={form.errors.company_id} />
-                <label className="block">
-                    <span className="mb-1 block text-sm font-medium text-gray-700">品番（空でもよい）</span>
-                    <input value={form.data.code} onChange={(e) => form.setData('code', e.target.value)} className={inputClass} />
-                    {form.errors.code && <span className="mt-1 block text-sm text-red-700">{form.errors.code}</span>}
-                </label>
-                <label className="block">
-                    <span className="mb-1 block text-sm font-medium text-gray-700">品名</span>
-                    <input value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} className={inputClass} />
-                    {form.errors.name && <span className="mt-1 block text-sm text-red-700">{form.errors.name}</span>}
-                </label>
-                <button type="submit" disabled={form.processing} className="rounded-lg bg-blue-600 px-5 py-2.5 font-bold text-white hover:bg-blue-700 disabled:opacity-50 sm:mt-6">
-                    足す
-                </button>
-            </div>
-        </form>
     );
 }
 

@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Models\Product;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -33,11 +35,42 @@ class CompanyController extends Controller
         ]);
     }
 
+    /**
+     * 会社を足す。品名も入れたときは、その会社の製品も1件いっしょに足す（D-034）
+     */
     public function store(Request $request): RedirectResponse
     {
-        Company::create($this->validated($request));
+        $company = $this->validated($request);
+        $product = $request->validate([
+            'product_code' => ['nullable', 'string', 'max:50', Rule::unique('products', 'code')],
+            // 品番だけ入れて品名が空のときは、品名のない製品になってしまうのではねる
+            'product_name' => ['nullable', 'string', 'max:255', 'required_with:product_code'],
+        ], [
+            'product_code.unique' => 'その品番は、もう登録されています。',
+            'product_code.max' => '品番は50文字までにしてください。',
+            'product_name.required_with' => '品番を入れたときは、品名も入れてください。',
+            'product_name.max' => '品名は255文字までにしてください。',
+        ]);
 
-        return back()->with('notice', '取引会社を登録しました。');
+        // 送られてこなかった欄は、空として扱う
+        $productName = $product['product_name'] ?? null;
+        $productCode = $product['product_code'] ?? null;
+
+        // 会社と製品はまとめて登録する。途中で失敗したら、どちらも登録しない
+        DB::transaction(function () use ($company, $productName, $productCode) {
+            $created = Company::create($company);
+            if ($productName !== null) {
+                Product::create([
+                    'company_id' => $created->id,
+                    'code' => $productCode,
+                    'name' => $productName,
+                ]);
+            }
+        });
+
+        return back()->with('notice', $productName !== null
+            ? '取引会社と製品を登録しました。'
+            : '取引会社を登録しました（製品は0件）。');
     }
 
     public function update(Request $request, Company $company): RedirectResponse
