@@ -124,7 +124,7 @@ function CompanyModal({ company, onClose }: { company: CompanyRow; onClose: () =
                     {errors.company}
                 </p>
             )}
-            <RenameForm company={company} />
+            <RenameForm company={company} onSaved={onClose} />
             <AddProductForm company={company} />
             <section className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4">
                 <Link href={`/admin/products?company=${company.id}`} className="text-sm font-medium text-blue-700 hover:underline">
@@ -147,12 +147,13 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
     return <h3 className="mb-2 text-sm font-semibold text-gray-500">{children}</h3>;
 }
 
-function RenameForm({ company }: { company: CompanyRow }) {
+function RenameForm({ company, onSaved }: { company: CompanyRow; onSaved: () => void }) {
     const form = useForm({ name: company.name });
 
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
-        form.patch(`/admin/companies/${company.id}`, { preserveScroll: true, onSuccess: () => form.setDefaults() });
+        // 保存できたら閉じる。保存できなかったときは、理由が見えるように閉じない
+        form.patch(`/admin/companies/${company.id}`, { preserveScroll: true, onSuccess: () => onSaved() });
     };
 
     return (

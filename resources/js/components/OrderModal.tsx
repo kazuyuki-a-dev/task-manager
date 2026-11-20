@@ -68,7 +68,7 @@ export default function OrderModal({ order, members, products, errors, onClose }
                     )}
                     <StatusSection order={order} onClose={onClose} />
                     <AssigneeSection order={order} members={members} />
-                    <DetailForm order={order} products={products} />
+                    <DetailForm order={order} products={products} onSaved={onClose} />
                     <DeleteSection order={order} />
                 </div>
             </div>
@@ -330,7 +330,7 @@ function ProductPicker({ products, value, onChange, error }: {
 }
 
 /** 内容（製品・数量・材料集結日・納期）を直す（R-03 の編集） */
-function DetailForm({ order, products }: { order: Order; products: Product[] }) {
+function DetailForm({ order, products, onSaved }: { order: Order; products: Product[]; onSaved: () => void }) {
     const form = useForm({
         product_id: order.productId,
         quantity: String(order.quantity),
@@ -348,8 +348,8 @@ function DetailForm({ order, products }: { order: Order; products: Product[] }) 
         }));
         form.patch(`/orders/${order.id}`, {
             ...KEEP_SCROLL,
-            // 保存できたら、今の値を「もとの値」にする（「内容を保存」をまた押せなくする）
-            onSuccess: () => form.setDefaults(),
+            // 保存できたら閉じる。保存できなかったときは、理由が見えるように閉じない
+            onSuccess: () => onSaved(),
         });
     };
 
@@ -413,7 +413,6 @@ function DetailForm({ order, products }: { order: Order; products: Product[] }) 
                 </div>
             </div>
             <div className="mt-4 flex items-center justify-end gap-3">
-                {form.recentlySuccessful && <span className="text-sm font-medium text-green-700">保存しました</span>}
                 <button
                     type="submit"
                     // 何も変えていないときは押せない
