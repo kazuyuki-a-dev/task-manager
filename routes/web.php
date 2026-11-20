@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\MemberController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\BoardController;
+use App\Http\Controllers\HistoryController;
 use App\Http\Controllers\OrderAssigneeController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderStatusController;
@@ -26,8 +27,8 @@ Route::patch('/orders/{order}/status', [OrderStatusController::class, 'update'])
 Route::post('/orders/{order}/assignees', [OrderAssigneeController::class, 'store'])->name('orders.assignees.store');
 Route::delete('/orders/{order}/assignees/{user}', [OrderAssigneeController::class, 'destroy'])->name('orders.assignees.destroy');
 
-// 完了の履歴（R-10）。中身は R-10 で作る。今はボードのボタンの行き先だけ用意する
-Route::get('/history', fn () => Inertia::render('History'))->name('history');
+// 完了の履歴（R-10）。だれでも見られる
+Route::get('/history', HistoryController::class)->name('history');
 
 // 管理者（R-06）。パスワードを入れた管理者だけが使える
 Route::prefix('admin')->name('admin.')->group(function () {
