@@ -56,3 +56,11 @@ export type PageErrors = {
     user_id?: string;
     version?: string;
 };
+
+/** すべての画面で受けとるデータ（HandleInertiaRequests の share） */
+export type SharedProps = {
+    /** パスワードを入れた管理者。入っていなければ null */
+    admin: Member | null;
+    /** 画面の上に一度だけ出すお知らせ */
+    notice: string | null;
+};

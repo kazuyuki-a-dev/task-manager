@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Controllers\Admin\LoginController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\OrderAssigneeController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderStatusController;
+use App\Http\Middleware\EnsureAdminSession;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -22,3 +24,14 @@ Route::delete('/orders/{order}/assignees/{user}', [OrderAssigneeController::clas
 
 // 完了の履歴（R-10）。中身は R-10 で作る。今はボードのボタンの行き先だけ用意する
 Route::get('/history', fn () => Inertia::render('History'))->name('history');
+
+// 管理者（R-06）。パスワードを入れた管理者だけが使える
+Route::prefix('admin')->name('admin.')->group(function () {
+    Route::get('/login', [LoginController::class, 'show'])->name('login');
+    Route::post('/login', [LoginController::class, 'store'])->name('login.store');
+    Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+
+    Route::middleware(EnsureAdminSession::class)->group(function () {
+        Route::get('/', fn () => Inertia::render('admin/Home'))->name('home');
+    });
+});

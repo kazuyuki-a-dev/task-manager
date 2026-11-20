@@ -162,13 +162,22 @@ export default function Board({ columns, alerts, today, members, products, error
                         <h1 className="text-xl font-semibold text-gray-900">進み具合のボード</h1>
                         <span className="text-sm text-gray-600">今日 {formatDate(today)}</span>
                     </div>
-                    {/* 完了した指示はボードに出さず、履歴の画面で見る（D-016） */}
-                    <Link
-                        href="/history"
-                        className="rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800"
-                    >
-                        完了の履歴
-                    </Link>
+                    <div className="flex items-center gap-2">
+                        {/* 完了した指示はボードに出さず、履歴の画面で見る（D-016） */}
+                        <Link
+                            href="/history"
+                            className="rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800"
+                        >
+                            完了の履歴
+                        </Link>
+                        {/* 管理者の画面へ。パスワードを入れていなければ、パスワードの画面が出る（R-06） */}
+                        <Link
+                            href="/admin"
+                            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+                        >
+                            管理者
+                        </Link>
+                    </div>
                 </header>
 
                 <AlertSummary alerts={alerts} onOpen={(order) => setOpenOrderId(order.id)} />
