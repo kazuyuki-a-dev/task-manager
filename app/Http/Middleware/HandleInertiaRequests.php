@@ -37,8 +37,8 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
-            // パスワードを入れた管理者の名前。入っていなければ null（R-06）
-            'admin' => fn () => $request->user()?->only(['id', 'name']),
+            // パスワードを入れた管理者の名前。入っていないか、10分たって終わっていれば null（R-06・D-011）
+            'admin' => fn () => EnsureAdminSession::isActive($request) ? $request->user()->only(['id', 'name']) : null,
             // 画面の上に一度だけ出すお知らせ（10分で管理者の操作を終えたときなど）
             'notice' => fn () => $request->session()->get('notice'),
         ];

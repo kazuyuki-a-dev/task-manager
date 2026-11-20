@@ -1,7 +1,7 @@
-import { router, useForm } from '@inertiajs/react';
+import { router, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatDate } from '../lib/date';
-import type { Member, Order, OrderStatus, PageErrors, Product } from '../types';
+import type { Member, Order, OrderStatus, PageErrors, Product, SharedProps } from '../types';
 
 type Props = {
     order: Order;
@@ -69,6 +69,7 @@ export default function OrderModal({ order, members, products, errors, onClose }
                     <StatusSection order={order} onClose={onClose} />
                     <AssigneeSection order={order} members={members} />
                     <DetailForm order={order} products={products} />
+                    <DeleteSection order={order} />
                 </div>
             </div>
         </dialog>
@@ -208,6 +209,39 @@ function AssigneeSection({ order, members }: { order: Order; members: Member[] }
                     ))}
                 </select>
             )}
+        </section>
+    );
+}
+
+/**
+ * 指示を消す（R-03）。管理者で入っていて、10分たっていないときだけ出す（D-011）。
+ * 消せるかどうかは、サーバーでも管理者かどうかを確かめる
+ */
+function DeleteSection({ order }: { order: Order }) {
+    const { admin } = usePage<SharedProps>().props;
+    const [processing, setProcessing] = useState(false);
+    if (!admin) return null;
+
+    const remove = () => {
+        if (!window.confirm(`「${order.productName}」の指示を消します。消すと元に戻せません。よいですか？`)) return;
+        router.delete(`/admin/orders/${order.id}`, {
+            ...KEEP_SCROLL,
+            onStart: () => setProcessing(true),
+            onFinish: () => setProcessing(false),
+        });
+    };
+
+    return (
+        <section className="flex items-center justify-between gap-3 border-t border-gray-200 pt-4">
+            <span className="text-sm text-gray-500">管理者：{admin.name}</span>
+            <button
+                type="button"
+                onClick={remove}
+                disabled={processing}
+                className="rounded-lg border border-red-300 bg-white px-4 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+            >
+                この指示を消す
+            </button>
         </section>
     );
 }

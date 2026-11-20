@@ -30,8 +30,7 @@ class EnsureAdminSession
             return redirect()->route('admin.login');
         }
 
-        $last = $request->session()->get(self::SESSION_KEY);
-        if ($last === null || now()->getTimestamp() - $last > self::IDLE_MINUTES * 60) {
+        if (! self::isFresh($request)) {
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
@@ -43,6 +42,24 @@ class EnsureAdminSession
         self::touch($request);
 
         return $next($request);
+    }
+
+    /**
+     * パスワードを入れた管理者で、最後の操作から10分たっていないか。
+     * ボードで管理者だけのボタン（指示を消す）を出すかどうかにも使う
+     */
+    public static function isActive(Request $request): bool
+    {
+        $user = $request->user();
+
+        return $user !== null && $user->role === UserRole::Admin && $user->is_active && self::isFresh($request);
+    }
+
+    private static function isFresh(Request $request): bool
+    {
+        $last = $request->session()->get(self::SESSION_KEY);
+
+        return $last !== null && now()->getTimestamp() - $last <= self::IDLE_MINUTES * 60;
     }
 
     /**
