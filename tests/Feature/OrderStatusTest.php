@@ -95,6 +95,26 @@ class OrderStatusTest extends TestCase
         $this->assertSame(OrderStatus::InProgress, $order->refresh()->status);
     }
 
+    /**
+     * 作業中から未着手に戻すと、始めた日は消え、もう一度始めたときの日時が新しい始めた日になる（D-025）
+     */
+    public function test_moving_back_to_not_started_clears_the_start_time(): void
+    {
+        $order = ProductionOrder::factory()->status(OrderStatus::InProgress)->create([
+            'started_at' => '2026-11-18 08:00:00',
+        ]);
+
+        $this->changeStatus($order, 'not_started')->assertSessionHasNoErrors();
+        $order->refresh();
+        $this->assertSame(OrderStatus::NotStarted, $order->status);
+        $this->assertNull($order->started_at);
+        $this->assertNull($order->completed_at);
+
+        $this->travelTo(Carbon::parse('2026-11-20 13:00:00'));
+        $this->changeStatus($order, 'in_progress');
+        $this->assertSame('2026-11-20 13:00:00', $order->refresh()->started_at->toDateTimeString());
+    }
+
     public function test_skipping_a_step_is_rejected(): void
     {
         $order = ProductionOrder::factory()->status(OrderStatus::NotStarted)->create();

@@ -21,6 +21,7 @@ class OrderStatusTransitionTest extends TestCase
         $allowed = [
             'not_started>in_progress',
             'in_progress>done',
+            'in_progress>not_started',
             'done>in_progress',
         ];
 
