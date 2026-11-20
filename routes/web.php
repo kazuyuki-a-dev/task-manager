@@ -2,12 +2,16 @@
 
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\OrderAssigneeController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderStatusController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 // トップは進み具合のボード（R-01）
 Route::get('/', BoardController::class)->name('board');
+
+// 指示の内容を直す（R-03 の編集）。だれでもできる（D-027）
+Route::patch('/orders/{order}', [OrderController::class, 'update'])->name('orders.update');
 
 // 指示の状態を変える（R-04）
 Route::patch('/orders/{order}/status', [OrderStatusController::class, 'update'])->name('orders.status.update');

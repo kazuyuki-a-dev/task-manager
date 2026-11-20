@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\Deadline;
 use App\Enums\OrderStatus;
+use App\Models\Product;
 use App\Models\ProductionOrder;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
@@ -57,6 +58,14 @@ class BoardController extends Controller
                 ->get(['id', 'name'])
                 ->map(fn (User $user) => ['id' => $user->id, 'name' => $user->name])
                 ->all(),
+            // 小さな画面で製品を選ぶための一覧。品番か品名の一部で、画面の中で探す（R-12）
+            'products' => Product::query()
+                ->orderByRaw('code IS NULL')
+                ->orderBy('code')
+                ->orderBy('name')
+                ->get(['id', 'code', 'name'])
+                ->map(fn (Product $product) => ['id' => $product->id, 'code' => $product->code, 'name' => $product->name])
+                ->all(),
         ]);
     }
 
@@ -73,6 +82,7 @@ class BoardController extends Controller
 
             return [
                 'id' => $order->id,
+                'productId' => $order->product_id,
                 'productCode' => $order->product->code,
                 'productName' => $order->product->name,
                 'quantity' => $order->quantity,
@@ -83,6 +93,8 @@ class BoardController extends Controller
                 'assignees' => $order->assignees->map(fn (User $user) => ['id' => $user->id, 'name' => $user->name])->all(),
                 'status' => $order->status->value,
                 'isDummy' => $order->is_dummy,
+                // 小さな画面で直すときに、ほかの端末の直しを上書きしないための印
+                'version' => $order->updated_at->toIso8601String(),
             ];
         })->all();
     }
