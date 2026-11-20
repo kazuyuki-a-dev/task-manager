@@ -1,6 +1,7 @@
 import { Link, router, useForm, usePage } from '@inertiajs/react';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import AdminLayout from '../../components/AdminLayout';
+import Modal from '../../components/Modal';
 
 type CompanyRow = {
     id: number;
@@ -109,14 +110,7 @@ function AddForm() {
 
 /** 会社のカードを押すと開く小さな画面。会社名を直す・製品を足す・消す */
 function CompanyModal({ company, onClose }: { company: CompanyRow; onClose: () => void }) {
-    const dialogRef = useRef<HTMLDialogElement>(null);
     const { errors } = usePage<{ errors: { company?: string } }>().props;
-
-    useEffect(() => {
-        const dialog = dialogRef.current;
-        dialog?.showModal();
-        return () => dialog?.close();
-    }, []);
 
     const remove = () => {
         if (!window.confirm(`「${company.name}」を消します。よいですか？`)) return;
@@ -124,55 +118,28 @@ function CompanyModal({ company, onClose }: { company: CompanyRow; onClose: () =
     };
 
     return (
-        <dialog
-            ref={dialogRef}
-            onClose={onClose}
-            onClick={(event) => event.target === dialogRef.current && onClose()}
-            aria-labelledby="company-modal-title"
-            className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-xl p-0 shadow-xl backdrop:bg-black/40"
-        >
-            <div className="max-h-[85vh] overflow-y-auto">
-                <header className="sticky top-0 flex items-start justify-between gap-2 border-b border-gray-200 bg-white px-4 py-3">
-                    <div>
-                        <h2 id="company-modal-title" className="text-lg font-semibold text-gray-900">
-                            {company.name}
-                        </h2>
-                        <p className="text-sm text-gray-500">製品 {company.productsCount}件</p>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        aria-label="閉じる"
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-2xl text-gray-500 hover:bg-gray-100"
-                    >
-                        ×
+        <Modal title={company.name} subtitle={`製品 ${company.productsCount}件`} onClose={onClose}>
+            {errors.company && (
+                <p role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 font-medium text-red-800">
+                    {errors.company}
+                </p>
+            )}
+            <RenameForm company={company} />
+            <AddProductForm company={company} />
+            <section className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4">
+                <Link href={`/admin/products?company=${company.id}`} className="text-sm font-medium text-blue-700 hover:underline">
+                    この会社の製品の一覧を見る（直す・消す）
+                </Link>
+                {/* 製品を1つも登録していない会社だけ消せる（D-033） */}
+                {company.productsCount === 0 ? (
+                    <button type="button" onClick={remove} className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">
+                        この会社を消す
                     </button>
-                </header>
-
-                <div className="space-y-6 px-4 py-4">
-                    {errors.company && (
-                        <p role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 font-medium text-red-800">
-                            {errors.company}
-                        </p>
-                    )}
-                    <RenameForm company={company} />
-                    <AddProductForm company={company} />
-                    <section className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4">
-                        <Link href={`/admin/products?company=${company.id}`} className="text-sm font-medium text-blue-700 hover:underline">
-                            この会社の製品の一覧を見る（直す・消す）
-                        </Link>
-                        {/* 製品を1つも登録していない会社だけ消せる（D-033） */}
-                        {company.productsCount === 0 ? (
-                            <button type="button" onClick={remove} className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">
-                                この会社を消す
-                            </button>
-                        ) : (
-                            <span className="text-sm text-gray-500">製品がある会社は消せません</span>
-                        )}
-                    </section>
-                </div>
-            </div>
-        </dialog>
+                ) : (
+                    <span className="text-sm text-gray-500">製品がある会社は消せません</span>
+                )}
+            </section>
+        </Modal>
     );
 }
 

@@ -6,7 +6,7 @@ const MENU: { label: string; requirement: string; href?: string }[] = [
     { label: '取引会社', requirement: 'R-14', href: '/admin/companies' },
     { label: '製品の一覧', requirement: 'R-12', href: '/admin/products' },
     { label: '指示の登録', requirement: 'R-03（指示を消すのは、ボードの小さな画面から）', href: '/admin/orders/create' },
-    { label: '社員の登録', requirement: 'R-07' },
+    { label: '社員', requirement: 'R-07', href: '/admin/members' },
     { label: '会社カレンダー（休みの登録）', requirement: 'R-13' },
 ];
 
