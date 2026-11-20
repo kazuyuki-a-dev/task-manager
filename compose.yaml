@@ -6,8 +6,6 @@ services:
             args:
                 WWWGROUP: '${WWWGROUP}'
         image: 'sail-8.5/app'
-        # Docker が動き出したら、止めていない箱は自動で動き出す（D-047）
-        restart: unless-stopped
         extra_hosts:
             - 'host.docker.internal:host-gateway'
         ports:
@@ -28,7 +26,6 @@ services:
     # スケジューラーを動かしつづける係（D-047）。5分ごとに「とれていなければバックアップをとる」を動かす
     scheduler:
         image: 'sail-8.5/app'
-        restart: unless-stopped
         command: ['php', '/var/www/html/artisan', 'schedule:work']
         environment:
             WWWUSER: '${WWWUSER}'
@@ -41,7 +38,6 @@ services:
             - mysql
     mysql:
         image: 'mysql:8.4'
-        restart: unless-stopped
         ports:
             - '${FORWARD_DB_PORT:-3306}:3306'
         environment:
