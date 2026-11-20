@@ -78,10 +78,10 @@ function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void }) {
                 aria-label={`${order.productName}を開いて直す`}
                 className={`w-full rounded-lg border border-gray-200 bg-white p-3 text-left shadow-sm hover:border-blue-400 hover:shadow ${highlight}`}
             >
-                {/* 1行目：品番とダミーの印（左）、期限の印（右）。印がなくても高さは同じ */}
+                {/* 1行目：品番とダミーの印（左）、期限の印（右）。品番や印がなくても高さは同じ */}
                 <div className="flex h-8 items-center justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2">
-                        <span className="truncate text-xs text-gray-500">{order.productCode ?? '品番なし'}</span>
+                        <span className="truncate text-xs text-gray-500">{order.productCode}</span>
                         {order.isDummy && (
                             <span className="shrink-0 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800">
                                 ダミー
