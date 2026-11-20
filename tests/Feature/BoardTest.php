@@ -70,11 +70,13 @@ class BoardTest extends TestCase
             'material_ready_date' => '2026-11-18',
             'due_date' => '2026-11-22',
         ]);
-        $order->assignees()->attach(User::factory()->create(['name' => '山田 太郎']));
+        $yamada = User::factory()->create(['name' => '山田 太郎']);
+        $order->assignees()->attach($yamada);
 
         $this->get('/')->assertInertia(fn (Assert $page) => $page
             ->has('columns.1.orders.0', fn (Assert $card) => $card
                 ->where('id', $order->id)
+                ->where('productId', $product->id)
                 ->where('productCode', 'SH-0660')
                 ->where('productName', 'シャフト')
                 ->where('quantity', 120)
@@ -82,9 +84,11 @@ class BoardTest extends TestCase
                 ->where('dueDate', '2026-11-22')
                 ->where('daysLeft', 2)
                 ->where('deadline', 'soon')
-                ->where('assignees', ['山田 太郎'])
+                ->where('assignees', [['id' => $yamada->id, 'name' => '山田 太郎']])
                 ->where('status', 'in_progress')
                 ->where('isDummy', false)
+                ->where('startBlockers', [])
+                ->where('version', $order->refresh()->updated_at->toIso8601String())
             )
         );
     }
@@ -103,7 +107,9 @@ class BoardTest extends TestCase
         $order->assignees()->attach($third);
 
         $this->get('/')->assertInertia(fn (Assert $page) => $page
-            ->where('columns.0.orders.0.assignees', ['渡辺 一郎', '青木 花子', '佐藤 次郎'])
+            ->where('columns.0.orders.0.assignees.0.name', '渡辺 一郎')
+            ->where('columns.0.orders.0.assignees.1.name', '青木 花子')
+            ->where('columns.0.orders.0.assignees.2.name', '佐藤 次郎')
         );
     }
 
@@ -118,6 +124,8 @@ class BoardTest extends TestCase
             ->where('columns.0.orders.0.assignees', [])
             ->where('columns.0.orders.0.productCode', null)
             ->where('columns.0.orders.0.materialReadyDate', null)
+            // 担当がいないので、作業を始められない理由が出る。材料集結日が空なのは理由にならない（D-030）
+            ->where('columns.0.orders.0.startBlockers', ['担当を足すと始められます'])
         );
     }
 
@@ -167,6 +175,23 @@ class BoardTest extends TestCase
         $many = $this->countQueries(fn () => $this->get('/')->assertOk());
 
         $this->assertSame($few, $many);
+    }
+
+    /**
+     * 小さな画面で選ぶ製品の一覧。品番のあるものを先に、品番の順。品番のないものは最後に品名の順
+     */
+    public function test_board_passes_products_for_the_picker(): void
+    {
+        $b = Product::factory()->create(['code' => 'BB-0002', 'name' => 'フランジ']);
+        $none = Product::factory()->withoutCode()->create(['name' => 'ステー']);
+        $a = Product::factory()->create(['code' => 'AA-0001', 'name' => 'シャフト']);
+
+        $this->get('/')->assertInertia(fn (Assert $page) => $page
+            ->has('products', 3)
+            ->where('products.0', ['id' => $a->id, 'code' => 'AA-0001', 'name' => 'シャフト'])
+            ->where('products.1', ['id' => $b->id, 'code' => 'BB-0002', 'name' => 'フランジ'])
+            ->where('products.2', ['id' => $none->id, 'code' => null, 'name' => 'ステー'])
+        );
     }
 
     public function test_history_page_is_reachable_from_the_board(): void

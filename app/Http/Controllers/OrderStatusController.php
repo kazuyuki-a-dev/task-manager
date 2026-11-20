@@ -33,6 +33,16 @@ class OrderStatusController extends Controller
                 ]);
             }
 
+            // 未着手から作業を始めるときは、担当がいること（D-030）
+            if ($order->status === OrderStatus::NotStarted && $next === OrderStatus::InProgress) {
+                $blockers = $order->startBlockers();
+                if ($blockers !== []) {
+                    throw ValidationException::withMessages([
+                        'status' => 'まだ作業を始められません。'.implode('。', $blockers).'。',
+                    ]);
+                }
+            }
+
             $order->changeStatus($next);
         });
 

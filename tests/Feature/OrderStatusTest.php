@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\OrderStatus;
 use App\Models\ProductionOrder;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -23,7 +24,7 @@ class OrderStatusTest extends TestCase
     public function test_starting_work_records_the_start_time(): void
     {
         $this->travelTo(Carbon::parse('2026-11-20 09:15:00'));
-        $order = ProductionOrder::factory()->status(OrderStatus::NotStarted)->create();
+        $order = ProductionOrder::factory()->status(OrderStatus::NotStarted)->withAssignee()->create();
 
         $this->changeStatus($order, 'in_progress')->assertRedirect('/')->assertSessionHasNoErrors();
 
@@ -84,15 +85,76 @@ class OrderStatusTest extends TestCase
     /**
      * 担当に入っていない指示も、だれでも変えられる（D-023）
      */
-    public function test_anyone_can_change_an_order_without_assignees_or_login(): void
+    public function test_anyone_can_start_work_without_login(): void
     {
-        $order = ProductionOrder::factory()->status(OrderStatus::NotStarted)->create();
-        $this->assertCount(0, $order->assignees);
+        $order = ProductionOrder::factory()->status(OrderStatus::NotStarted)->withAssignee()->create();
         $this->assertGuest();
 
         $this->changeStatus($order, 'in_progress')->assertSessionHasNoErrors();
 
         $this->assertSame(OrderStatus::InProgress, $order->refresh()->status);
+    }
+
+    /**
+     * 担当が未割り当てなら、作業を始められない（D-030）
+     */
+    public function test_work_cannot_start_without_assignees(): void
+    {
+        $order = ProductionOrder::factory()->status(OrderStatus::NotStarted)->create();
+
+        $this->changeStatus($order, 'in_progress')->assertSessionHasErrors([
+            'status' => 'まだ作業を始められません。担当を足すと始められます。',
+        ]);
+
+        $order->refresh();
+        $this->assertSame(OrderStatus::NotStarted, $order->status);
+        $this->assertNull($order->started_at);
+    }
+
+    /**
+     * 材料集結日が空でも、担当がいれば作業を始められる（D-030）
+     */
+    public function test_work_can_start_without_material_date_when_someone_is_assigned(): void
+    {
+        $order = ProductionOrder::factory()->status(OrderStatus::NotStarted)->withAssignee()
+            ->create(['material_ready_date' => null]);
+
+        $this->changeStatus($order, 'in_progress')->assertSessionHasNoErrors();
+
+        $this->assertSame(OrderStatus::InProgress, $order->refresh()->status);
+    }
+
+    /**
+     * 完了から作業中に戻すときは、担当がいなくても戻せる（D-030 は始めるときだけ）
+     */
+    public function test_reopening_a_done_order_does_not_require_material_date_or_assignees(): void
+    {
+        $order = ProductionOrder::factory()->status(OrderStatus::Done)->create(['material_ready_date' => null]);
+
+        $this->changeStatus($order, 'in_progress')->assertSessionHasNoErrors();
+
+        $this->assertSame(OrderStatus::InProgress, $order->refresh()->status);
+    }
+
+    /**
+     * 作業中から未着手に戻すと、始めた日は消え、もう一度始めたときの日時が新しい始めた日になる（D-025）
+     */
+    public function test_moving_back_to_not_started_clears_the_start_time(): void
+    {
+        $order = ProductionOrder::factory()->status(OrderStatus::InProgress)->create([
+            'started_at' => '2026-11-18 08:00:00',
+        ]);
+
+        $this->changeStatus($order, 'not_started')->assertSessionHasNoErrors();
+        $order->refresh();
+        $this->assertSame(OrderStatus::NotStarted, $order->status);
+        $this->assertNull($order->started_at);
+        $this->assertNull($order->completed_at);
+
+        $order->assignees()->attach(User::factory()->create());
+        $this->travelTo(Carbon::parse('2026-11-20 13:00:00'));
+        $this->changeStatus($order, 'in_progress')->assertSessionHasNoErrors();
+        $this->assertSame('2026-11-20 13:00:00', $order->refresh()->started_at->toDateTimeString());
     }
 
     public function test_skipping_a_step_is_rejected(): void

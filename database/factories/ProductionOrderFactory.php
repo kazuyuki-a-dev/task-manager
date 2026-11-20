@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Enums\OrderStatus;
 use App\Models\Product;
 use App\Models\ProductionOrder;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Carbon;
 
@@ -52,6 +53,14 @@ class ProductionOrderFactory extends Factory
                     : null,
             ];
         });
+    }
+
+    /**
+     * 担当を1人入れて作る。材料集結日はふだんから入っているので、これで作業を始められる形になる（D-029）
+     */
+    public function withAssignee(): static
+    {
+        return $this->afterCreating(fn (ProductionOrder $order) => $order->assignees()->attach(User::factory()->create()));
     }
 
     /**

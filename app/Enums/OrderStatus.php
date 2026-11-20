@@ -12,14 +12,14 @@ enum OrderStatus: string
     case Done = 'done';
 
     /**
-     * この状態から、次の状態に変えてよいか（R-04・D-024）。
-     * 未着手 → 作業中 → 完了 の順に進める。まちがえたときのために、完了 → 作業中 には戻せる
+     * この状態から、次の状態に変えてよいか（R-04・D-024・D-025）。
+     * 未着手 → 作業中 → 完了 の順に進める。まちがえたときのために、1つ前には戻せる
      */
     public function canChangeTo(self $next): bool
     {
         return match ($this) {
             self::NotStarted => $next === self::InProgress,
-            self::InProgress => $next === self::Done,
+            self::InProgress => $next === self::Done || $next === self::NotStarted,
             self::Done => $next === self::InProgress,
         };
     }
