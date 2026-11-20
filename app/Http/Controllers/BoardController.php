@@ -93,7 +93,7 @@ class BoardController extends Controller
                 'assignees' => $order->assignees->map(fn (User $user) => ['id' => $user->id, 'name' => $user->name])->all(),
                 'status' => $order->status->value,
                 'isDummy' => $order->is_dummy,
-                // 作業を始められない理由。未着手のときだけ使う（D-029）
+                // 作業を始められない理由。未着手のときだけ使う（D-030）
                 'startBlockers' => $order->startBlockers(),
                 // 小さな画面で直すときに、ほかの端末の直しを上書きしないための印
                 'version' => $order->updated_at->toIso8601String(),

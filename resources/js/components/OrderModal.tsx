@@ -117,7 +117,7 @@ function StatusSection({ order, onClose }: { order: Order; onClose: () => void }
         });
     };
 
-    // 未着手から始めるときだけ、材料集結日と担当がそろっているか見る（D-029）
+    // 未着手から始めるときだけ、担当がいるか見る（D-030）
     const blockedFor = (action: StatusAction) =>
         order.status === 'not_started' && action.next === 'in_progress' && order.startBlockers.length > 0;
 
@@ -300,7 +300,7 @@ function DetailForm({ order, products }: { order: Order; products: Product[] }) 
         }));
         form.patch(`/orders/${order.id}`, {
             ...KEEP_SCROLL,
-            // 保存できたら、今の値を「もとの値」にする（「内容を保存」をまた押せなくする）
+            // 保存できたら、今の値を「もとの値」にする
             onSuccess: () => form.setDefaults(),
         });
     };
@@ -308,7 +308,8 @@ function DetailForm({ order, products }: { order: Order; products: Product[] }) 
     const inputClass = 'w-full rounded-lg border border-gray-300 px-3 py-2.5';
 
     return (
-        <form onSubmit={submit}>
+        // ブラウザの確かめは止め、サーバーが返す理由を欄の下に出す形にそろえる
+        <form onSubmit={submit} noValidate>
             <SectionTitle>内容</SectionTitle>
             <div className="space-y-4">
                 <div>
@@ -368,7 +369,8 @@ function DetailForm({ order, products }: { order: Order; products: Product[] }) 
                 {form.recentlySuccessful && <span className="text-sm font-medium text-green-700">保存しました</span>}
                 <button
                     type="submit"
-                    disabled={form.processing || !form.isDirty}
+                    // 空欄があっても押せる。入れていない必ずの項目は、サーバーが欄の下に理由を返す
+                    disabled={form.processing}
                     className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50"
                 >
                     内容を保存

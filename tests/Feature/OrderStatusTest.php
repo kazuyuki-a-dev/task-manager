@@ -7,7 +7,6 @@ use App\Models\ProductionOrder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
-use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -97,27 +96,15 @@ class OrderStatusTest extends TestCase
     }
 
     /**
-     * 材料集結日が未定か、担当が未割り当てなら、作業を始められない（D-029）
-     *
-     * @return array<string, array{bool, bool, string}>
+     * 担当が未割り当てなら、作業を始められない（D-030）
      */
-    public static function notReadyToStart(): array
+    public function test_work_cannot_start_without_assignees(): void
     {
-        return [
-            '担当が未割り当て' => [true, false, 'まだ作業を始められません。担当を足すと始められます。'],
-            '材料集結日が未定' => [false, true, 'まだ作業を始められません。材料集結日を入れると始められます。'],
-            'どちらも' => [false, false, 'まだ作業を始められません。材料集結日を入れると始められます。担当を足すと始められます。'],
-        ];
-    }
+        $order = ProductionOrder::factory()->status(OrderStatus::NotStarted)->create();
 
-    #[DataProvider('notReadyToStart')]
-    public function test_work_cannot_start_without_material_date_or_assignees(bool $hasMaterialDate, bool $hasAssignee, string $message): void
-    {
-        $factory = ProductionOrder::factory()->status(OrderStatus::NotStarted)
-            ->state(['material_ready_date' => $hasMaterialDate ? '2026-11-18' : null]);
-        $order = ($hasAssignee ? $factory->withAssignee() : $factory)->create();
-
-        $this->changeStatus($order, 'in_progress')->assertSessionHasErrors(['status' => $message]);
+        $this->changeStatus($order, 'in_progress')->assertSessionHasErrors([
+            'status' => 'まだ作業を始められません。担当を足すと始められます。',
+        ]);
 
         $order->refresh();
         $this->assertSame(OrderStatus::NotStarted, $order->status);
@@ -125,7 +112,20 @@ class OrderStatusTest extends TestCase
     }
 
     /**
-     * 完了から作業中に戻すときは、担当や材料集結日がなくても戻せる（D-029 は始めるときだけ）
+     * 材料集結日が空でも、担当がいれば作業を始められる（D-030）
+     */
+    public function test_work_can_start_without_material_date_when_someone_is_assigned(): void
+    {
+        $order = ProductionOrder::factory()->status(OrderStatus::NotStarted)->withAssignee()
+            ->create(['material_ready_date' => null]);
+
+        $this->changeStatus($order, 'in_progress')->assertSessionHasNoErrors();
+
+        $this->assertSame(OrderStatus::InProgress, $order->refresh()->status);
+    }
+
+    /**
+     * 完了から作業中に戻すときは、担当がいなくても戻せる（D-030 は始めるときだけ）
      */
     public function test_reopening_a_done_order_does_not_require_material_date_or_assignees(): void
     {
