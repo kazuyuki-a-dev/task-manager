@@ -40,6 +40,22 @@ jobs:
       - name: Composer のパッケージを入れる
         run: composer install --no-interaction --prefer-dist --no-progress
 
+      # 手元の Sail と同じ Node 24 にそろえている
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: npm のパッケージを入れる
+        run: npm ci
+
+      - name: TypeScript の型を確かめる
+        run: npm run typecheck
+
+      # テストで画面を返すときに、組み立て済みのファイルがいる
+      - name: 画面を組み立てる
+        run: npm run build
+
       - name: .env を用意する
         run: |
           cp .env.example .env
