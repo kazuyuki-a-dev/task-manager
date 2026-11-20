@@ -18,10 +18,8 @@ type ProductCard = {
 
 type DoneOrder = {
     id: number;
-    quantity: number;
+    /** 'YYYY-MM-DD' */
     dueDate: string;
-    startedAt: string | null;
-    completedAt: string | null;
     /** 担当した人の名前（全員。消した社員も残る） */
     assignees: string[];
 };
@@ -187,7 +185,10 @@ function Filters({ q, companyId, companies }: { q: string; companyId: number | n
     );
 }
 
-/** 製品のカードを押すと開く小さな画面。その製品の完了した指示（新しい順）と、作業中に戻すボタン */
+/**
+ * 製品のカードを押すと開く小さな画面。その製品の完了した指示を、納期の新しい順に1件1行で出す。
+ * たくさんたまるので、出すのは「年・納期・作業者」だけ（D-038）。作業中に戻すボタンも置く
+ */
 function HistoryModal({ selected, errors, onClose }: { selected: Selected; errors: PageErrors; onClose: () => void }) {
     const [processingId, setProcessingId] = useState<number | null>(null);
 
@@ -218,29 +219,19 @@ function HistoryModal({ selected, errors, onClose }: { selected: Selected; error
             ) : (
                 <ul className="divide-y divide-gray-100">
                     {selected.orders.map((order) => (
-                        <li key={order.id} className="space-y-1 py-3">
-                            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm">
-                                <dt className="text-gray-500">完了</dt>
-                                <dd className="font-semibold text-gray-900">{order.completedAt ? formatDateTime(order.completedAt) : '—'}</dd>
-                                <dt className="text-gray-500">始めた日</dt>
-                                <dd className="text-gray-900">{order.startedAt ? formatDateTime(order.startedAt) : '—'}</dd>
-                                <dt className="text-gray-500">数量</dt>
-                                <dd className="text-gray-900">{order.quantity.toLocaleString()}</dd>
-                                <dt className="text-gray-500">納期</dt>
-                                <dd className="text-gray-900">{formatDate(order.dueDate)}</dd>
-                                <dt className="text-gray-500">担当</dt>
-                                <dd className="text-gray-900">{order.assignees.length > 0 ? order.assignees.join('、') : 'なし'}</dd>
-                            </dl>
-                            <div className="flex justify-end">
-                                <button
-                                    type="button"
-                                    onClick={() => reopen(order)}
-                                    disabled={processingId !== null}
-                                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                                >
-                                    作業中に戻す
-                                </button>
-                            </div>
+                        <li key={order.id} className="flex items-center gap-3 py-2 text-sm">
+                            <span className="w-14 shrink-0 font-semibold text-gray-900">{order.dueDate.slice(0, 4)}年</span>
+                            <span className="w-28 shrink-0 text-gray-900">納期 {formatDate(order.dueDate)}</span>
+                            <span className="min-w-0 flex-1 text-gray-700">{order.assignees.length > 0 ? order.assignees.join('、') : 'なし'}</span>
+                            <button
+                                type="button"
+                                onClick={() => reopen(order)}
+                                disabled={processingId !== null}
+                                aria-label={`納期 ${formatDate(order.dueDate)} の指示を作業中に戻す`}
+                                className="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                                戻す
+                            </button>
                         </li>
                     ))}
                 </ul>

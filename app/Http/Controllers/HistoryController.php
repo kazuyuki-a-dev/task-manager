@@ -113,7 +113,8 @@ class HistoryController extends Controller
     }
 
     /**
-     * 小さな画面に出す、1つの製品の完了した指示。完了した日の新しい順
+     * 小さな画面に出す、1つの製品の完了した指示。納期の新しい順。
+     * たくさんたまるので、1件は「年・納期・作業者」だけにする（D-038）
      *
      * @return array<string, mixed>|null
      */
@@ -137,16 +138,15 @@ class HistoryController extends Controller
             'limit' => self::ORDERS_LIMIT,
             'orders' => $done
                 ->with('assignees:id,name')
+                ->orderByDesc('due_date')
                 ->orderByDesc('completed_at')
                 ->orderByDesc('id')
                 ->limit(self::ORDERS_LIMIT)
                 ->get()
                 ->map(fn (ProductionOrder $order) => [
                     'id' => $order->id,
-                    'quantity' => $order->quantity,
+                    // 画面では「2026年 納期 11/16(月)」のように、納期の年と日付を出す
                     'dueDate' => $order->due_date->toDateString(),
-                    'startedAt' => $order->started_at?->format('Y-m-d H:i'),
-                    'completedAt' => $order->completed_at?->format('Y-m-d H:i'),
                     // 消した社員の名前も残す（D-036）
                     'assignees' => $order->assignees->map(fn (User $user) => $user->name)->all(),
                 ])

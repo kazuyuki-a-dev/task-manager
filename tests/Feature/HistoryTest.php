@@ -153,13 +153,13 @@ class HistoryTest extends TestCase
     }
 
     /**
-     * カードを押すと、その製品の完了した指示が新しい順に出る。始めた日・完了した日・数量・担当（全員）・納期
+     * カードを押すと、その製品の完了した指示が出る。1件は「年・納期・作業者（全員）」だけ（D-038）
      */
     public function test_selected_product_shows_its_done_orders_newest_first(): void
     {
         $product = Product::factory()->create(['name' => 'シャフト']);
-        $older = $this->done($product, '2026-11-10 17:00:00', ['started_at' => '2026-11-08 08:00:00', 'quantity' => 50, 'due_date' => '2026-11-11']);
-        $newer = $this->done($product, '2026-11-15 12:00:00', ['started_at' => '2026-11-14 09:30:00', 'quantity' => 80, 'due_date' => '2026-11-16']);
+        $older = $this->done($product, '2026-11-10 17:00:00', ['due_date' => '2026-11-11']);
+        $newer = $this->done($product, '2026-11-15 12:00:00', ['due_date' => '2026-11-16']);
         $a = User::factory()->create(['name' => '山田 太郎']);
         $b = User::factory()->create(['name' => '佐藤 花子']);
         $newer->assignees()->attach([$a->id, $b->id]);
@@ -174,15 +174,29 @@ class HistoryTest extends TestCase
             ->has('selected.orders', 2)
             ->where('selected.orders.0', [
                 'id' => $newer->id,
-                'quantity' => 80,
                 'dueDate' => '2026-11-16',
-                'startedAt' => '2026-11-14 09:30',
-                'completedAt' => '2026-11-15 12:00',
                 'assignees' => ['山田 太郎', '佐藤 花子'],
             ])
             ->where('selected.orders.1.id', $older->id)
             ->where('selected.orders.1.assignees', [])
         );
+    }
+
+    /**
+     * 小さな画面は、完了した日ではなく、納期の新しい順に並ぶ（D-038）
+     */
+    public function test_selected_orders_are_sorted_by_newest_due_date(): void
+    {
+        $product = Product::factory()->create();
+        // 完了した日と納期の順番が、わざと逆になるようにする
+        $laterDue = $this->done($product, '2026-11-01 10:00:00', ['due_date' => '2026-12-20']);
+        $earlierDue = $this->done($product, '2026-11-15 10:00:00', ['due_date' => '2025-12-01']);
+        $middleDue = $this->done($product, '2026-11-10 10:00:00', ['due_date' => '2026-06-15']);
+
+        $this->get("/history?product={$product->id}")->assertInertia(fn (Assert $page) => $page
+            ->where('selected.orders.0.id', $laterDue->id)
+            ->where('selected.orders.1.id', $middleDue->id)
+            ->where('selected.orders.2.id', $earlierDue->id));
     }
 
     /**
