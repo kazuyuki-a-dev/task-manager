@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\LoginController;
+use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\OrderAssigneeController;
@@ -41,6 +42,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/companies', [CompanyController::class, 'store'])->name('companies.store');
         Route::patch('/companies/{company}', [CompanyController::class, 'update'])->name('companies.update');
         Route::delete('/companies/{company}', [CompanyController::class, 'destroy'])->name('companies.destroy');
+
+        // 指示の登録と削除（R-03）。削除はボードの小さな画面から使う
+        Route::get('/orders/create', [AdminOrderController::class, 'create'])->name('orders.create');
+        Route::post('/orders', [AdminOrderController::class, 'store'])->name('orders.store');
+        Route::delete('/orders/{order}', [AdminOrderController::class, 'destroy'])->name('orders.destroy');
 
         // 製品の一覧と検索（R-12）
         Route::get('/products', [ProductController::class, 'index'])->name('products.index');
