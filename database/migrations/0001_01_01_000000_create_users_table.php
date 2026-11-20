@@ -11,20 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // 社員。メールは使わない（D-006）ので、メールアドレスの列は持たない
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
+            // admin（管理者）か worker（作業者）。App\Enums\UserRole
+            $table->string('role')->default('worker');
+            // 管理者だけが持つ。作業者は名前を選ぶだけなので空（D-003・D-004）
+            $table->string('password')->nullable();
+            // 辞めた人は消さずに使えなくする。過去の記録に名前を残すため（R-07）
+            $table->boolean('is_active')->default(true);
+            // ダミーデータの印
+            $table->boolean('is_dummy')->default(false);
             $table->rememberToken();
             $table->timestamps();
-        });
-
-        Schema::create('password_reset_tokens', function (Blueprint $table) {
-            $table->string('email')->primary();
-            $table->string('token');
-            $table->timestamp('created_at')->nullable();
         });
 
         Schema::create('sessions', function (Blueprint $table) {
@@ -43,7 +43,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
     }
 };
