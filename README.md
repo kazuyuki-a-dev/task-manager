@@ -17,10 +17,14 @@ composer install
 cp .env.example .env
 ./vendor/bin/sail up -d
 ./vendor/bin/sail artisan key:generate
-./vendor/bin/sail artisan migrate
+./vendor/bin/sail artisan migrate --seed   # --seed でダミーデータも入る
+./vendor/bin/sail npm install
+./vendor/bin/sail npm run build
 ```
 
 http://localhost を開くと画面が出ます。
+
+画面を直しながら確かめるときは、`npm run build` のかわりに `./vendor/bin/sail npm run dev` を動かしておくと、保存するたびに画面に反映されます。
 
 テスト：`./vendor/bin/sail test`
 

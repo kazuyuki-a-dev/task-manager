@@ -1,10 +1,7 @@
 <?php
 
+use App\Http\Controllers\BoardController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('Home', [
-        'appName' => config('app.name'),
-    ]);
-});
+// トップは進み具合のボード（R-01）
+Route::get('/', BoardController::class)->name('board');
