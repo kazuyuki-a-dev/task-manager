@@ -40,12 +40,11 @@ class CalendarController extends Controller
             ->get()
             ->groupBy(fn (CalendarEvent $event) => $event->date->toDateString());
 
-        // 会社の休みの日（D-042）
-        $holidays = CompanyHoliday::query()
+        // 会社の休みの決まりとちがう日（D-042・D-043）。日付 => 休みかどうか
+        $overrides = CompanyHoliday::query()
             ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
-            ->pluck('date')
-            ->map(fn ($date) => $date->toDateString())
-            ->flip();
+            ->get(['date', 'is_holiday'])
+            ->mapWithKeys(fn (CompanyHoliday $holiday) => [$holiday->date->toDateString() => $holiday->is_holiday]);
 
         $days = [];
         for ($day = $start; $day->lte($end); $day = $day->addDay()) {
@@ -53,7 +52,8 @@ class CalendarController extends Controller
             $days[] = [
                 'date' => $key,
                 'inMonth' => $day->month === $month->month,
-                'isHoliday' => isset($holidays[$key]),
+                // 決まりとちがう日として登録があればそのとおり、なければ決まり（日曜日は休み）
+                'isHoliday' => $overrides[$key] ?? CompanyHoliday::isHolidayByDefault($day),
                 'absences' => ($absences[$key] ?? collect())->map(fn (Absence $absence) => [
                     'id' => $absence->id,
                     'userId' => $absence->user_id,

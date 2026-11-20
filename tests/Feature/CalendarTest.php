@@ -230,6 +230,50 @@ class CalendarTest extends TestCase
                 && self::day($days->all(), '2026-12-28')['isHoliday'] === false));
     }
 
+    /**
+     * 日曜日は、何も登録しなくても会社の休み。土曜日はちがう（D-043）
+     */
+    public function test_sundays_are_company_holidays_by_default(): void
+    {
+        $this->get('/calendar?month=2026-12')->assertInertia(fn (Assert $page) => $page
+            ->where('days', fn ($days) => self::day($days->all(), '2026-12-06')['isHoliday'] === true   // 日曜
+                && self::day($days->all(), '2026-12-13')['isHoliday'] === true                         // 日曜
+                && self::day($days->all(), '2026-12-05')['isHoliday'] === false                        // 土曜
+                && self::day($days->all(), '2026-12-07')['isHoliday'] === false));                     // 月曜
+        $this->assertSame(0, CompanyHoliday::count());
+    }
+
+    /**
+     * 日曜日も「会社の休みをやめる」で出勤日にできる（休日出勤）。もどせば、決まりとちがう日の登録は消える
+     */
+    public function test_a_sunday_can_be_made_a_working_day_and_back(): void
+    {
+        $this->asAdmin()->from('/calendar?month=2026-12');
+
+        $this->put('/admin/company-holidays', ['date' => '2026-12-06', 'holiday' => false])->assertSessionHasNoErrors();
+        $this->get('/calendar?month=2026-12')->assertInertia(fn (Assert $page) => $page
+            ->where('days', fn ($days) => self::day($days->all(), '2026-12-06')['isHoliday'] === false));
+        $this->assertSame(1, CompanyHoliday::count());
+
+        $this->put('/admin/company-holidays', ['date' => '2026-12-06', 'holiday' => true])->assertSessionHasNoErrors();
+        $this->get('/calendar?month=2026-12')->assertInertia(fn (Assert $page) => $page
+            ->where('days', fn ($days) => self::day($days->all(), '2026-12-06')['isHoliday'] === true));
+        // 日曜日を休みにもどすのは決まりと同じなので、登録は残さない
+        $this->assertSame(0, CompanyHoliday::count());
+    }
+
+    /**
+     * 日曜日を「休みにする」と送っても、もともと休みなので、何も登録しない
+     */
+    public function test_marking_a_sunday_as_holiday_stores_nothing(): void
+    {
+        $this->asAdmin()->from('/calendar');
+
+        $this->put('/admin/company-holidays', ['date' => '2026-12-06', 'holiday' => true])->assertSessionHasNoErrors();
+
+        $this->assertSame(0, CompanyHoliday::count());
+    }
+
     public function test_admin_can_turn_a_company_holiday_on_and_off(): void
     {
         $this->asAdmin()->from('/calendar?month=2026-12');

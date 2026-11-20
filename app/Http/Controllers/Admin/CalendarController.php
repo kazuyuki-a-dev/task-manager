@@ -9,6 +9,7 @@ use App\Models\CalendarEvent;
 use App\Models\CompanyHoliday;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 /**
@@ -30,10 +31,14 @@ class CalendarController extends Controller
             'date.date_format' => '日付の形がちがいます。',
         ]);
 
-        if ($validated['holiday']) {
-            CompanyHoliday::firstOrCreate(['date' => $validated['date']]);
-        } else {
+        $holiday = (bool) $validated['holiday'];
+        $byDefault = CompanyHoliday::isHolidayByDefault(Carbon::parse($validated['date']));
+
+        if ($holiday === $byDefault) {
+            // 決まり（日曜日は休み）と同じにするときは、決まりとちがう日の登録を消す
             CompanyHoliday::where('date', $validated['date'])->delete();
+        } else {
+            CompanyHoliday::updateOrCreate(['date' => $validated['date']], ['is_holiday' => $holiday]);
         }
 
         return back();
