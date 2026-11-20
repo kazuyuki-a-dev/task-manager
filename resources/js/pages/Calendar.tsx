@@ -132,8 +132,9 @@ function DayCell({ day, isToday, weekday, onOpen }: { day: Day; isToday: boolean
             type="button"
             onClick={onOpen}
             aria-label={`${formatDate(day.date)}を開く`}
+            // 中身がいつも上から並ぶように、縦に並べて上に寄せる（ボタンは、ふだん中身を上下のまん中に寄せるため）
             // 会社の休みの日は、マスの色を変える（D-042）
-            className={`h-32 overflow-hidden border-b border-r border-gray-100 p-1 text-left align-top hover:bg-blue-50 ${
+            className={`flex h-32 flex-col justify-start overflow-hidden border-b border-r border-gray-100 p-1 text-left hover:bg-blue-50 ${
                 day.isHoliday ? 'bg-rose-100' : day.inMonth ? '' : 'bg-gray-50'
             }`}
         >

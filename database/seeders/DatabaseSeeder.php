@@ -43,9 +43,19 @@ class DatabaseSeeder extends Seeder
         foreach ($counts as $status => $count) {
             $status = OrderStatus::from($status);
 
+            // 完了した指示は、納期を過去にする（未来の日に完了したことにならないように）
+            $past = $status === OrderStatus::Done
+                ? function () {
+                    $due = now()->subDays(fake()->numberBetween(6, 60))->startOfDay();
+
+                    return ['due_date' => $due, 'material_ready_date' => $due->copy()->subDays(fake()->numberBetween(2, 7))];
+                }
+                : [];
+
             ProductionOrder::factory()
                 ->count($count)
                 ->dummy()
+                ->state($past)
                 ->status($status)
                 ->state(fn () => ['product_id' => $products->random()->id])
                 ->create()
