@@ -92,6 +92,8 @@ class BoardTest extends TestCase
                 ->where('isDummy', false)
                 ->where('startBlockers', [])
                 ->where('version', $order->refresh()->updated_at->toIso8601String())
+                // テストのデータは道具で直接作っているので、変更の記録はまだない
+                ->where('logs', [])
             )
         );
     }

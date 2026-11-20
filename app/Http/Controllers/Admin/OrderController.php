@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\OrderLogAction;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
@@ -82,6 +83,12 @@ class OrderController extends Controller
                 'status' => OrderStatus::NotStarted,
             ]);
             $order->assignees()->attach($validated['assignee_ids'] ?? []);
+
+            // 変更の記録（R-08）：登録したことと、はじめから入れた担当
+            $order->log(OrderLogAction::Created);
+            foreach ($order->assignees()->get(['users.id', 'users.name']) as $assignee) {
+                $order->log(OrderLogAction::AssigneeAdded, null, $assignee->name);
+            }
         });
 
         // 続けて何件も入れられるように、同じ画面に戻る
