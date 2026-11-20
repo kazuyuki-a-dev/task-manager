@@ -199,6 +199,13 @@ export default function Board({ columns, alerts, today, members, products, error
                         >
                             完了の履歴
                         </Link>
+                        {/* 会社カレンダー（R-13） */}
+                        <Link
+                            href="/calendar"
+                            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+                        >
+                            カレンダー
+                        </Link>
                         {/* 管理者の画面へ。パスワードを入れていなければ、パスワードの画面が出る（R-06） */}
                         <Link
                             href="/admin"

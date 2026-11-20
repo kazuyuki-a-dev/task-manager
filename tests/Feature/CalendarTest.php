@@ -1,0 +1,265 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Enums\AbsenceType;
+use App\Models\Absence;
+use App\Models\CalendarEvent;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Inertia\Testing\AssertableInertia as Assert;
+use Tests\TestCase;
+
+/**
+ * R-13 会社カレンダー（D-020・D-040）
+ */
+class CalendarTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private function asAdmin(): static
+    {
+        return $this->actingAs(User::factory()->admin()->create())
+            ->withSession(['admin_last_activity' => now()->getTimestamp()]);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $days
+     * @return array<string, mixed>
+     */
+    private static function day(array $days, string $date): array
+    {
+        return collect($days)->firstWhere('date', $date);
+    }
+
+    /**
+     * ログインしていなくても、だれでも見られる。日曜はじまりで、前後の月のはみ出す日もマスとして出す
+     */
+    public function test_anyone_can_see_a_month_starting_on_sunday(): void
+    {
+        // 社員がいても、管理者でなければ、休みを足すプルダウンの社員は送らない
+        User::factory()->count(3)->create();
+        $this->assertGuest();
+
+        // 2026年12月1日は火曜。カレンダーは11/29(日)から、1/2(土)まで
+        $this->get('/calendar?month=2026-12')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Calendar')
+            ->where('month', '2026-12')
+            ->where('prevMonth', '2026-11')
+            ->where('nextMonth', '2027-01')
+            ->has('days', 35)
+            ->where('days.0.date', '2026-11-29')
+            ->where('days.0.inMonth', false)
+            ->where('days.2.date', '2026-12-01')
+            ->where('days.2.inMonth', true)
+            ->where('days.34.date', '2027-01-02')
+            ->where('members', []));
+    }
+
+    public function test_month_defaults_to_this_month_and_ignores_bad_input(): void
+    {
+        $this->travelTo(Carbon::parse('2026-11-20 10:00:00'));
+
+        $this->get('/calendar')->assertInertia(fn (Assert $page) => $page->where('month', '2026-11')->where('today', '2026-11-20'));
+        $this->get('/calendar?month=2026-13')->assertInertia(fn (Assert $page) => $page->where('month', '2026-11'));
+        $this->get('/calendar?month=abc')->assertInertia(fn (Assert $page) => $page->where('month', '2026-11'));
+    }
+
+    /**
+     * マスには、休みのメンバーの名前と行事のタイトルが入る。作業者には有給か欠勤かを送らない（D-020）
+     */
+    public function test_days_show_absences_and_events_without_type_for_workers(): void
+    {
+        $worker = User::factory()->create(['name' => '山田 太郎']);
+        Absence::create(['date' => '2026-12-03', 'user_id' => $worker->id, 'type' => AbsenceType::Paid]);
+        CalendarEvent::create(['date' => '2026-12-03', 'title' => '棚卸', 'body' => '第2倉庫']);
+
+        $this->get('/calendar?month=2026-12')->assertInertia(fn (Assert $page) => $page
+            ->where('days', function ($days) use ($worker) {
+                $day = self::day($days->all(), '2026-12-03');
+                // 有給か欠勤かは、画面で隠すだけでなく、送りもしない
+                return $day['absences'] === [['id' => Absence::first()->id, 'userId' => $worker->id, 'name' => '山田 太郎']]
+                    && $day['events'] === [['id' => CalendarEvent::first()->id, 'title' => '棚卸', 'body' => '第2倉庫']];
+            }));
+    }
+
+    /**
+     * 管理者には、有給か欠勤かと、休みを足すプルダウンの社員を送る
+     */
+    public function test_admin_sees_absence_type_and_member_options(): void
+    {
+        $worker = User::factory()->create(['name' => '佐藤 花子']);
+        User::factory()->inactive()->create(['name' => '消した人']);
+        Absence::create(['date' => '2026-12-04', 'user_id' => $worker->id, 'type' => AbsenceType::Absent]);
+
+        $this->asAdmin()->get('/calendar?month=2026-12')->assertInertia(fn (Assert $page) => $page
+            ->where('days', fn ($days) => self::day($days->all(), '2026-12-04')['absences'][0]['typeLabel'] === '欠勤'
+                && self::day($days->all(), '2026-12-04')['absences'][0]['type'] === 'absent')
+            ->where('members', fn ($members) => collect($members)->pluck('name')->contains('佐藤 花子')
+                && ! collect($members)->pluck('name')->contains('消した人')));
+    }
+
+    /**
+     * ほかの月の休みや行事は、マスに出ない。
+     * あわせて、データベースには「カレンダーのはんい（11/29〜1/2）」でしぼって聞いていることも確かめる
+     * （しぼらないと、年月がたつほど読む量が増えて重くなるため）
+     */
+    public function test_only_the_month_range_is_loaded(): void
+    {
+        $worker = User::factory()->create();
+        Absence::create(['date' => '2026-10-15', 'user_id' => $worker->id, 'type' => AbsenceType::Paid]);
+        CalendarEvent::create(['date' => '2027-02-01', 'title' => 'ずっと先']);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->get('/calendar?month=2026-12')->assertInertia(fn (Assert $page) => $page
+            ->where('days', fn ($days) => collect($days)->every(fn ($d) => $d['absences'] === [] && $d['events'] === [])));
+        $queries = collect(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        foreach (['absences', 'calendar_events'] as $table) {
+            $query = $queries->first(fn ($q) => str_contains($q['query'], "from `{$table}`"));
+            $this->assertNotNull($query, "{$table} を読んでいない");
+            $this->assertStringContainsString('between', $query['query']);
+            $this->assertSame(['2026-11-29', '2027-01-02'], $query['bindings']);
+        }
+    }
+
+    public function test_adding_and_removing_requires_the_admin_password(): void
+    {
+        $worker = User::factory()->create();
+        $absence = Absence::create(['date' => '2026-12-03', 'user_id' => $worker->id, 'type' => AbsenceType::Paid]);
+        $event = CalendarEvent::create(['date' => '2026-12-03', 'title' => '棚卸']);
+
+        $this->post('/admin/absences', ['date' => '2026-12-04', 'user_id' => $worker->id, 'type' => 'paid'])->assertRedirect('/admin/login');
+        $this->delete("/admin/absences/{$absence->id}")->assertRedirect('/admin/login');
+        $this->post('/admin/calendar-events', ['date' => '2026-12-04', 'title' => '行事'])->assertRedirect('/admin/login');
+        $this->delete("/admin/calendar-events/{$event->id}")->assertRedirect('/admin/login');
+
+        $this->assertSame(1, Absence::count());
+        $this->assertSame(1, CalendarEvent::count());
+    }
+
+    public function test_admin_can_add_and_remove_an_absence(): void
+    {
+        $worker = User::factory()->create();
+
+        $this->asAdmin()->from('/calendar?month=2026-12')
+            ->post('/admin/absences', ['date' => '2026-12-03', 'user_id' => $worker->id, 'type' => 'absent'])
+            ->assertRedirect('/calendar?month=2026-12')
+            ->assertSessionHasNoErrors();
+
+        $absence = Absence::sole();
+        $this->assertSame('2026-12-03', $absence->date->toDateString());
+        $this->assertSame(AbsenceType::Absent, $absence->type);
+
+        $this->delete("/admin/absences/{$absence->id}")->assertSessionHasNoErrors();
+        $this->assertModelMissing($absence);
+    }
+
+    public function test_absence_input_is_checked(): void
+    {
+        $worker = User::factory()->create();
+        $gone = User::factory()->inactive()->create();
+        Absence::create(['date' => '2026-12-03', 'user_id' => $worker->id, 'type' => AbsenceType::Paid]);
+        $this->asAdmin()->from('/calendar');
+
+        // 同じ人を同じ日に二重に入れない（ほかの日ならよい）
+        $this->post('/admin/absences', ['date' => '2026-12-03', 'user_id' => $worker->id, 'type' => 'absent'])
+            ->assertSessionHasErrors(['user_id' => 'その人は、この日はもう休みに入っています。']);
+        $this->post('/admin/absences', ['date' => '2026-12-04', 'user_id' => $worker->id, 'type' => 'paid'])->assertSessionHasNoErrors();
+        // 消した社員は入れない
+        $this->post('/admin/absences', ['date' => '2026-12-05', 'user_id' => $gone->id, 'type' => 'paid'])
+            ->assertSessionHasErrors(['user_id' => '選んだメンバーは、休みに入れられません。']);
+        $this->post('/admin/absences', ['date' => '2026-12-05', 'user_id' => '', 'type' => 'paid'])
+            ->assertSessionHasErrors(['user_id' => 'メンバーを選んでください。']);
+        $this->post('/admin/absences', ['date' => '2026-12-05', 'user_id' => $worker->id, 'type' => 'holiday'])
+            ->assertSessionHasErrors('type');
+        $this->post('/admin/absences', ['date' => '12/05', 'user_id' => $worker->id, 'type' => 'paid'])
+            ->assertSessionHasErrors('date');
+
+        $this->assertSame(2, Absence::count());
+    }
+
+    public function test_admin_can_add_and_remove_an_event(): void
+    {
+        $this->asAdmin()->from('/calendar')
+            ->post('/admin/calendar-events', ['date' => '2026-12-29', 'title' => '年末年始休み', 'body' => ''])
+            ->assertSessionHasNoErrors();
+
+        $event = CalendarEvent::sole();
+        $this->assertSame('年末年始休み', $event->title);
+        // 空の内容は null になる
+        $this->assertNull($event->body);
+
+        $this->delete("/admin/calendar-events/{$event->id}")->assertSessionHasNoErrors();
+        $this->assertModelMissing($event);
+    }
+
+    public function test_event_input_is_checked(): void
+    {
+        $this->asAdmin()->from('/calendar');
+
+        $this->post('/admin/calendar-events', ['date' => '2026-12-29', 'title' => ''])
+            ->assertSessionHasErrors(['title' => '行事のタイトルを入れてください。']);
+        $this->post('/admin/calendar-events', ['date' => '2026-12-29', 'title' => str_repeat('あ', 51)])
+            ->assertSessionHasErrors(['title' => 'タイトルは50文字までにしてください。']);
+        $this->post('/admin/calendar-events', ['date' => '2026-12-29', 'title' => '棚卸', 'body' => str_repeat('あ', 201)])
+            ->assertSessionHasErrors(['body' => '内容は200文字までにしてください。']);
+        // 200文字ちょうどはよい
+        $this->post('/admin/calendar-events', ['date' => '2026-12-29', 'title' => '棚卸', 'body' => str_repeat('あ', 200)])->assertSessionHasNoErrors();
+
+        $this->assertSame(1, CalendarEvent::count());
+    }
+
+    /**
+     * 消した社員の休みも、カレンダーには名前が残る（D-036）
+     */
+    public function test_deleted_members_absences_still_show_their_names(): void
+    {
+        $worker = User::factory()->create(['name' => '辞めた人']);
+        Absence::create(['date' => '2026-12-03', 'user_id' => $worker->id, 'type' => AbsenceType::Paid]);
+        $worker->update(['is_active' => false]);
+
+        $this->get('/calendar?month=2026-12')->assertInertia(fn (Assert $page) => $page
+            ->where('days', fn ($days) => self::day($days->all(), '2026-12-03')['absences'][0]['name'] === '辞めた人'));
+    }
+
+    /**
+     * 休みと行事が増えても、問い合わせの回数が増えない（社員の名前を1件ずつ読まない）
+     */
+    public function test_query_count_does_not_grow(): void
+    {
+        $workers = User::factory()->count(20)->create();
+        $add = function (int $days) use ($workers) {
+            static $next = 1;
+            for ($i = 0; $i < $days; $i++, $next++) {
+                $date = sprintf('2026-12-%02d', $next);
+                foreach ($workers->random(3) as $worker) {
+                    Absence::create(['date' => $date, 'user_id' => $worker->id, 'type' => AbsenceType::Paid]);
+                }
+                CalendarEvent::create(['date' => $date, 'title' => "行事{$next}"]);
+            }
+        };
+
+        $add(2);
+        $few = $this->countQueries(fn () => $this->get('/calendar?month=2026-12')->assertOk());
+        $add(20);
+        $many = $this->countQueries(fn () => $this->get('/calendar?month=2026-12')->assertOk());
+
+        $this->assertSame($few, $many);
+    }
+
+    private function countQueries(callable $callback): int
+    {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $callback();
+        $count = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        return $count;
+    }
+}

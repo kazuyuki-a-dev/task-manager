@@ -7,7 +7,7 @@ const MENU: { label: string; requirement: string; href?: string }[] = [
     { label: '製品の一覧', requirement: 'R-12', href: '/admin/products' },
     { label: '指示の登録', requirement: 'R-03（指示を消すのは、ボードの小さな画面から）', href: '/admin/orders/create' },
     { label: '社員', requirement: 'R-07', href: '/admin/members' },
-    { label: '会社カレンダー（休みの登録）', requirement: 'R-13' },
+    { label: '会社カレンダー（休みと行事は、日付を押して足す）', requirement: 'R-13', href: '/calendar' },
 ];
 
 /** 管理者の画面の入口（R-06） */
