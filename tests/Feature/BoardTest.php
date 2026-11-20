@@ -62,6 +62,7 @@ class BoardTest extends TestCase
 
     public function test_each_order_shows_product_quantity_dates_assignees_and_status(): void
     {
+        $this->travelTo(now()->setDate(2026, 11, 20));
         $product = Product::factory()->create(['code' => 'SH-0660', 'name' => 'シャフト']);
         $order = ProductionOrder::factory()->status(OrderStatus::InProgress)->create([
             'product_id' => $product->id,
@@ -79,6 +80,8 @@ class BoardTest extends TestCase
                 ->where('quantity', 120)
                 ->where('materialReadyDate', '2026-11-18')
                 ->where('dueDate', '2026-11-22')
+                ->where('daysLeft', 2)
+                ->where('deadline', 'soon')
                 ->where('assignees', ['山田 太郎'])
                 ->where('status', 'in_progress')
                 ->where('isDummy', false)

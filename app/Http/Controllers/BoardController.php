@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\Deadline;
 use App\Enums\OrderStatus;
 use App\Models\ProductionOrder;
 use App\Models\User;
@@ -10,7 +11,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * 進み具合のボード（R-01）。
+ * 進み具合のボード（R-01）と期限の見える化（R-02）。
  * 完了した指示は出さない。完了は履歴の画面（R-10）で見る（D-016）
  */
 class BoardController extends Controller
@@ -30,14 +31,25 @@ class BoardController extends Controller
             ->orderBy('id')
             ->get();
 
+        $cards = $this->toCards($orders);
+
         $columns = array_map(fn (OrderStatus $status) => [
             'status' => $status->value,
             'label' => $status->label(),
-            'orders' => $this->toCards($orders->where('status', $status)),
+            'orders' => array_values(array_filter($cards, fn (array $card) => $card['status'] === $status->value)),
         ], self::STATUSES);
+
+        // 画面のいちばん上にまとめて出す。遅れを先に、そのあと期限間近。どちらも納期の近い順
+        // （$cards はもう納期の近い順なので、遅れ・期限間近で分けて並べるだけでよい）
+        $alerts = [
+            ...array_filter($cards, fn (array $card) => $card['deadline'] === Deadline::Overdue->value),
+            ...array_filter($cards, fn (array $card) => $card['deadline'] === Deadline::Soon->value),
+        ];
 
         return Inertia::render('Board', [
             'columns' => $columns,
+            'alerts' => array_values($alerts),
+            'today' => today()->toDateString(),
         ]);
     }
 
@@ -47,16 +59,24 @@ class BoardController extends Controller
      */
     private function toCards(Collection $orders): array
     {
-        return $orders->values()->map(fn (ProductionOrder $order) => [
-            'id' => $order->id,
-            'productCode' => $order->product->code,
-            'productName' => $order->product->name,
-            'quantity' => $order->quantity,
-            'materialReadyDate' => $order->material_ready_date?->toDateString(),
-            'dueDate' => $order->due_date->toDateString(),
-            'assignees' => $order->assignees->map(fn (User $user) => $user->name)->all(),
-            'status' => $order->status->value,
-            'isDummy' => $order->is_dummy,
-        ])->all();
+        $today = today();
+
+        return $orders->values()->map(function (ProductionOrder $order) use ($today) {
+            $daysLeft = Deadline::daysLeft($order->due_date, $today);
+
+            return [
+                'id' => $order->id,
+                'productCode' => $order->product->code,
+                'productName' => $order->product->name,
+                'quantity' => $order->quantity,
+                'materialReadyDate' => $order->material_ready_date?->toDateString(),
+                'dueDate' => $order->due_date->toDateString(),
+                'daysLeft' => $daysLeft,
+                'deadline' => Deadline::fromDaysLeft($daysLeft)?->value,
+                'assignees' => $order->assignees->map(fn (User $user) => $user->name)->all(),
+                'status' => $order->status->value,
+                'isDummy' => $order->is_dummy,
+            ];
+        })->all();
     }
 }
