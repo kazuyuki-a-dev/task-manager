@@ -57,7 +57,17 @@ function DeadlineBadge({ order }: { order: Order }) {
     );
 }
 
-/** カードは見るだけ。押すと小さな画面が開く（D-028） */
+/** カードの担当は1行におさめる。何人もいるときは「山田 太郎 ほか2人」。全員の名前はミニ画面で見る */
+function shortAssignees(order: Order): string {
+    const [first, ...rest] = order.assignees;
+    if (!first) return '未割り当て';
+    return rest.length > 0 ? `${first.name} ほか${rest.length}人` : first.name;
+}
+
+/**
+ * カードは見るだけ。押すと小さな画面が開く（D-028）。
+ * どのカードも同じ高さになるように、行の数を決めておき、長い文字は1行で「…」にする
+ */
 function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void }) {
     const highlight = order.deadline ? DEADLINE_STYLES[order.deadline].card : '';
     return (
@@ -68,21 +78,21 @@ function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void }) {
                 aria-label={`${order.productName}を開いて直す`}
                 className={`w-full rounded-lg border border-gray-200 bg-white p-3 text-left shadow-sm hover:border-blue-400 hover:shadow ${highlight}`}
             >
-                <div className="flex items-start justify-between gap-2">
-                    <div>
-                        {order.productCode && <p className="text-xs text-gray-500">{order.productCode}</p>}
-                        <p className="font-semibold text-gray-900">{order.productName}</p>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                        <DeadlineBadge order={order} />
+                {/* 1行目：品番とダミーの印（左）、期限の印（右）。印がなくても高さは同じ */}
+                <div className="flex h-8 items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                        <span className="truncate text-xs text-gray-500">{order.productCode ?? '品番なし'}</span>
                         {order.isDummy && (
-                            <span className="rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800">
+                            <span className="shrink-0 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800">
                                 ダミー
                             </span>
                         )}
                     </div>
+                    <DeadlineBadge order={order} />
                 </div>
-                <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+                {/* 2行目：品名。長いときは1行で「…」 */}
+                <p className="truncate font-semibold text-gray-900">{order.productName}</p>
+                <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
                     <dt className="text-gray-500">数量</dt>
                     <dd className="text-gray-900">{order.quantity.toLocaleString()}</dd>
                     <dt className="text-gray-500">材料集結日</dt>
@@ -92,8 +102,8 @@ function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void }) {
                     <dt className="text-gray-500">納期</dt>
                     <dd className="font-medium text-gray-900">{formatDate(order.dueDate)}</dd>
                     <dt className="text-gray-500">担当</dt>
-                    <dd className={order.assignees.length > 0 ? 'text-gray-900' : 'text-red-700'}>
-                        {order.assignees.length > 0 ? assigneeNames(order) : '未割り当て'}
+                    <dd className={`truncate ${order.assignees.length > 0 ? 'text-gray-900' : 'text-red-700'}`}>
+                        {shortAssignees(order)}
                     </dd>
                 </dl>
             </button>
