@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Middleware\EnsureAdminSession;
 use App\Models\Absence;
 use App\Models\CalendarEvent;
+use App\Models\CompanyHoliday;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -39,12 +40,20 @@ class CalendarController extends Controller
             ->get()
             ->groupBy(fn (CalendarEvent $event) => $event->date->toDateString());
 
+        // 会社の休みの決まりとちがう日（D-042・D-043）。日付 => 休みかどうか
+        $overrides = CompanyHoliday::query()
+            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+            ->get(['date', 'is_holiday'])
+            ->mapWithKeys(fn (CompanyHoliday $holiday) => [$holiday->date->toDateString() => $holiday->is_holiday]);
+
         $days = [];
         for ($day = $start; $day->lte($end); $day = $day->addDay()) {
             $key = $day->toDateString();
             $days[] = [
                 'date' => $key,
                 'inMonth' => $day->month === $month->month,
+                // 決まりとちがう日として登録があればそのとおり、なければ決まり（日曜日は休み）
+                'isHoliday' => $overrides[$key] ?? CompanyHoliday::isHolidayByDefault($day),
                 'absences' => ($absences[$key] ?? collect())->map(fn (Absence $absence) => [
                     'id' => $absence->id,
                     'userId' => $absence->user_id,

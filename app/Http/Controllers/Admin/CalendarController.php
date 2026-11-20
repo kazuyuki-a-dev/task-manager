@@ -6,8 +6,10 @@ use App\Enums\AbsenceType;
 use App\Http\Controllers\Controller;
 use App\Models\Absence;
 use App\Models\CalendarEvent;
+use App\Models\CompanyHoliday;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 /**
@@ -15,6 +17,33 @@ use Illuminate\Validation\Rule;
  */
 class CalendarController extends Controller
 {
+    /**
+     * 会社の休みにする・やめる（D-042）。送られてきた「休みにするか」のとおりにする
+     * （押すたびに入れかえる形にしないのは、2回続けて押されても、思ったのと逆にならないようにするため）
+     */
+    public function setHoliday(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'date' => ['required', 'date_format:Y-m-d'],
+            'holiday' => ['required', 'boolean'],
+        ], [
+            'date.required' => '日付がありません。',
+            'date.date_format' => '日付の形がちがいます。',
+        ]);
+
+        $holiday = (bool) $validated['holiday'];
+        $byDefault = CompanyHoliday::isHolidayByDefault(Carbon::parse($validated['date']));
+
+        if ($holiday === $byDefault) {
+            // 決まり（日曜日は休み）と同じにするときは、決まりとちがう日の登録を消す
+            CompanyHoliday::where('date', $validated['date'])->delete();
+        } else {
+            CompanyHoliday::updateOrCreate(['date' => $validated['date']], ['is_holiday' => $holiday]);
+        }
+
+        return back();
+    }
+
     public function storeAbsence(Request $request): RedirectResponse
     {
         $validated = $request->validate([

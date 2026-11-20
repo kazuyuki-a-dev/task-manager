@@ -24,6 +24,8 @@ type Day = {
     date: string;
     /** この月の日か（前後の月のはみ出す日は false） */
     inMonth: boolean;
+    /** 会社の休みの日か（D-042） */
+    isHoliday: boolean;
     absences: AbsenceItem[];
     events: EventItem[];
 };
@@ -79,6 +81,7 @@ export default function Calendar({ month, prevMonth, nextMonth, today, days, mem
                     <p className="flex gap-4 text-sm text-gray-600">
                         <span className="rounded bg-blue-100 px-1.5 text-blue-900">■ 行事</span>
                         <span className="rounded bg-orange-50 px-1.5 text-orange-800">休みのメンバー</span>
+                        <span className="rounded bg-rose-100 px-1.5 text-rose-900">休 会社の休み</span>
                         {admin && <span>日付を押すと、休みと行事を足せます</span>}
                     </p>
 
@@ -129,10 +132,17 @@ function DayCell({ day, isToday, weekday, onOpen }: { day: Day; isToday: boolean
             type="button"
             onClick={onOpen}
             aria-label={`${formatDate(day.date)}を開く`}
-            className={`h-32 overflow-hidden border-b border-r border-gray-100 p-1 text-left align-top hover:bg-blue-50 ${day.inMonth ? '' : 'bg-gray-50'}`}
+            // 会社の休みの日は、マスの色を変える（D-042）
+            className={`h-32 overflow-hidden border-b border-r border-gray-100 p-1 text-left align-top hover:bg-blue-50 ${
+                day.isHoliday ? 'bg-rose-100' : day.inMonth ? '' : 'bg-gray-50'
+            }`}
         >
-            <span className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full text-sm font-semibold ${numberColor} ${isToday ? 'bg-gray-900 text-white' : ''}`}>
-                {dayNumber}
+            <span className="flex items-center gap-1">
+                <span className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full text-sm font-semibold ${numberColor} ${isToday ? 'bg-gray-900 text-white' : ''}`}>
+                    {dayNumber}
+                </span>
+                {/* 色だけで見分けなくてよいように、「休」も出す */}
+                {day.isHoliday && <span className="text-xs font-bold text-rose-800">休</span>}
             </span>
             <span className="mt-0.5 block space-y-0.5">
                 {shown.map((item) =>
@@ -170,7 +180,8 @@ function DayModal({ day, members, isAdmin, onClose }: { day: Day; members: Membe
     };
 
     return (
-        <Modal title={formatDate(day.date)} onClose={onClose}>
+        <Modal title={formatDate(day.date)} subtitle={day.isHoliday ? '会社の休み' : undefined} onClose={onClose}>
+            <HolidaySection day={day} isAdmin={isAdmin} />
             <section>
                 <SectionTitle>休み</SectionTitle>
                 {day.absences.length === 0 ? (
@@ -231,6 +242,44 @@ function DayModal({ day, members, isAdmin, onClose }: { day: Day; members: Membe
     );
 }
 
+/**
+ * 会社の休みの切りかえ（D-042）。管理者だけが切りかえられる。
+ * 押すたびに入れかえるのではなく、「休みにする」「やめる」のどちらにするかを送る
+ */
+function HolidaySection({ day, isAdmin }: { day: Day; isAdmin: boolean }) {
+    const [processing, setProcessing] = useState(false);
+    if (!isAdmin) {
+        return day.isHoliday ? <p className="rounded-lg bg-rose-100 px-3 py-2 font-semibold text-rose-900">この日は会社の休みです</p> : null;
+    }
+
+    const set = (holiday: boolean) => {
+        router.put('/admin/company-holidays', { date: day.date, holiday }, {
+            preserveScroll: true,
+            preserveState: true,
+            onStart: () => setProcessing(true),
+            onFinish: () => setProcessing(false),
+        });
+    };
+
+    return (
+        <section className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 ${day.isHoliday ? 'bg-rose-100' : 'bg-gray-50'}`}>
+            <span className={`font-semibold ${day.isHoliday ? 'text-rose-900' : 'text-gray-700'}`}>
+                {day.isHoliday ? 'この日は会社の休みです' : 'この日は会社の休みではありません'}
+            </span>
+            <button
+                type="button"
+                onClick={() => set(!day.isHoliday)}
+                disabled={processing}
+                className={`shrink-0 rounded-lg px-4 py-2 text-sm font-bold disabled:opacity-50 ${
+                    day.isHoliday ? 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50' : 'bg-rose-600 text-white hover:bg-rose-700'
+                }`}
+            >
+                {day.isHoliday ? '会社の休みをやめる' : '会社の休みにする'}
+            </button>
+        </section>
+    );
+}
+
 /** 休みを足す。メンバーをプルダウンで選び、有給か欠勤かを選ぶ */
 function AbsenceForm({ day, members }: { day: Day; members: Member[] }) {
     const form = useForm({ date: day.date, user_id: '', type: 'paid' });
@@ -285,7 +334,7 @@ function EventForm({ day }: { day: Day }) {
         <form onSubmit={submit} className="mt-3 space-y-2">
             <label className="block">
                 <span className="mb-1 block text-sm font-medium text-gray-700">タイトル</span>
-                <input value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} maxLength={50} placeholder="例：棚卸、健康診断、年末年始休み" className={inputClass} />
+                <input value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} maxLength={50} placeholder="例：棚卸、健康診断" className={inputClass} />
                 <FieldError message={form.errors.title} />
             </label>
             <label className="block">

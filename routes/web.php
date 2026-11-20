@@ -45,6 +45,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/', fn () => Inertia::render('admin/Home'))->name('home');
 
         // 会社カレンダーに休みと行事を足す・取り消す（R-13）。カレンダーの日付の小さな画面から使う
+        Route::put('/company-holidays', [AdminCalendarController::class, 'setHoliday'])->name('company-holidays.set');
         Route::post('/absences', [AdminCalendarController::class, 'storeAbsence'])->name('absences.store');
         Route::delete('/absences/{absence}', [AdminCalendarController::class, 'destroyAbsence'])->name('absences.destroy');
         Route::post('/calendar-events', [AdminCalendarController::class, 'storeEvent'])->name('calendar-events.store');
