@@ -36,8 +36,19 @@ type Selected = {
     orders: DoneOrder[];
 };
 
+type CompanyOption = {
+    id: number;
+    name: string;
+    /** 完了した指示がある製品の数 */
+    productsCount: number;
+};
+
 type Props = {
     q: string;
+    /** 選んでいる取引会社。null なら、すべての会社 */
+    companyId: number | null;
+    /** 完了した指示がある取引会社だけ */
+    companies: CompanyOption[];
     products: { data: ProductCard[]; total: number; currentPage: number; lastPage: number };
     /** 小さな画面で開いている製品。開いていなければ null */
     selected: Selected | null;
@@ -55,8 +66,13 @@ function params(changes: Record<string, string | number | null>): Record<string,
     return next;
 }
 
-/** 完了の履歴（R-10）。完了した指示がある製品をカードで並べ、押すとその製品の完了した指示が出る */
-export default function History({ q, products, selected, errors }: Props) {
+/**
+ * 完了の履歴（R-10）。取引会社を選んでしぼり、完了した指示がある製品をカードで並べる。
+ * カードを押すと、その製品の完了した指示が出る
+ */
+export default function History({ q, companyId, companies, products, selected, errors }: Props) {
+    const selectedCompany = companies.find((company) => company.id === companyId);
+
     const open = (productId: number) => {
         // 開いた製品の分だけを、サーバーから取ってくる（カードは読みなおさない）
         router.get('/history', params({ product: productId }), { only: ['selected'], preserveState: true, preserveScroll: true, replace: true });
@@ -77,10 +93,11 @@ export default function History({ q, products, selected, errors }: Props) {
                 </header>
 
                 <main className="mx-auto max-w-5xl space-y-4 p-4">
-                    <SearchBox q={q} />
+                    <Filters q={q} companyId={companyId} companies={companies} />
                     <p className="text-sm text-gray-600">
-                        {q ? `「${q}」で探した結果：` : '完了した指示がある製品：'}
-                        {products.total}件
+                        {selectedCompany ? `${selectedCompany.name}の` : 'すべての会社の'}
+                        完了した指示がある製品
+                        {q && `（「${q}」で探した結果）`}：{products.total}件
                     </p>
                     {products.data.length === 0 ? (
                         <p className="text-gray-500">{q ? '見つかりません' : 'まだ完了した指示はありません'}</p>
@@ -120,31 +137,53 @@ export default function History({ q, products, selected, errors }: Props) {
     );
 }
 
-/** 取引会社・品番・品名の一部を打つと、打つ手が止まるたびにしぼられる */
-function SearchBox({ q }: { q: string }) {
+const inputClass = 'w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5';
+
+/**
+ * 取引会社を選ぶと、その会社の製品だけになる。品名・品番を打つと、さらにしぼられる。
+ * 選びなおしたり打ちなおしたりしたら、1ページ目から出しなおす
+ */
+function Filters({ q, companyId, companies }: { q: string; companyId: number | null; companies: CompanyOption[] }) {
     const [value, setValue] = useState(q);
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const visit = (changes: Record<string, string | number | null>) => {
+        router.get('/history', params({ page: null, product: null, ...changes }), { preserveState: true, preserveScroll: true, replace: true });
+    };
 
     // 打つたびにサーバーに聞くと多すぎるので、打つ手が 0.3秒止まってから聞く
     useEffect(() => {
         if (value === q) return;
-        timer.current = setTimeout(() => {
-            router.get('/history', params({ q: value.trim(), page: null, product: null }), { preserveState: true, preserveScroll: true, replace: true });
-        }, 300);
+        timer.current = setTimeout(() => visit({ q: value.trim() }), 300);
         return () => {
             if (timer.current) clearTimeout(timer.current);
         };
     }, [value, q]);
 
     return (
-        <input
-            type="search"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="取引会社・品番・品名の一部で探す"
-            aria-label="製品を探す"
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5"
-        />
+        <section className="grid gap-3 rounded-lg border border-gray-200 bg-white p-4 sm:grid-cols-2">
+            <label className="block">
+                <span className="mb-1 block text-sm font-medium text-gray-700">取引会社</span>
+                <select value={companyId ?? ''} onChange={(e) => visit({ company: e.target.value === '' ? null : Number(e.target.value) })} className={inputClass}>
+                    <option value="">すべての会社</option>
+                    {companies.map((company) => (
+                        <option key={company.id} value={company.id}>
+                            {company.name}（{company.productsCount}製品）
+                        </option>
+                    ))}
+                </select>
+            </label>
+            <label className="block">
+                <span className="mb-1 block text-sm font-medium text-gray-700">品名・品番</span>
+                <input
+                    type="search"
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    placeholder="一部を打つと、合う製品が出ます"
+                    className={inputClass}
+                />
+            </label>
+        </section>
     );
 }
 

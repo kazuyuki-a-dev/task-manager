@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\OrderStatus;
+use App\Models\Company;
 use App\Models\Product;
 use App\Models\ProductionOrder;
 use App\Models\User;
@@ -30,14 +31,41 @@ class HistoryController extends Controller
     public function __invoke(Request $request): Response
     {
         $q = trim((string) $request->query('q', ''));
+        // 選んでいる取引会社。選んでいなければ、すべての会社
+        $companyId = $request->integer('company') ?: null;
         $productId = $request->integer('product') ?: null;
 
         return Inertia::render('History', [
             'q' => $q,
+            'companyId' => $companyId,
             // 小さな画面を開いたときは、その製品の分だけを取りなおすので、カードは読みなおさない（関数にしておくと、いるときだけ読む）
-            'products' => fn () => $this->products($q),
+            'companies' => fn () => $this->companies(),
+            'products' => fn () => $this->products($q, $companyId),
             'selected' => fn () => $productId !== null ? $this->selected($productId) : null,
         ]);
+    }
+
+    /**
+     * 取引会社のプルダウン。完了した指示がある会社だけを、会社名の順に出す。
+     * 会社ごとに、完了した指示がある製品の数も出す
+     *
+     * @return list<array{id: int, name: string, productsCount: int}>
+     */
+    private function companies(): array
+    {
+        $productsWithDone = fn (Builder $query) => $query->whereHas('orders', fn (Builder $o) => $o->where('status', OrderStatus::Done));
+
+        return Company::query()
+            ->whereHas('products', $productsWithDone)
+            ->withCount(['products as products_count' => $productsWithDone])
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Company $company) => [
+                'id' => $company->id,
+                'name' => $company->name,
+                'productsCount' => $company->products_count,
+            ])
+            ->all();
     }
 
     /**
@@ -45,13 +73,14 @@ class HistoryController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function products(string $q): array
+    private function products(string $q, ?int $companyId): array
     {
         $done = fn (Builder $query) => $query->where('status', OrderStatus::Done);
 
         $page = Product::query()
             ->with('company:id,name')
             ->whereHas('orders', $done)
+            ->when($companyId !== null, fn (Builder $query) => $query->where('company_id', $companyId))
             ->withCount(['orders as done_count' => $done])
             ->withMax(['orders as last_completed_at' => $done], 'completed_at')
             ->when($q !== '', function (Builder $query) use ($q) {

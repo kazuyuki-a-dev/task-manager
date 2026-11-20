@@ -95,6 +95,50 @@ class HistoryTest extends TestCase
         );
     }
 
+    /**
+     * 取引会社を選ぶと、その会社の製品のカードだけになる。品名を打てば、その会社の中でしぼられる
+     */
+    public function test_choosing_a_company_shows_only_its_products(): void
+    {
+        $towa = Company::factory()->create(['name' => 'ダミー東和工業']);
+        $hokuriku = Company::factory()->create(['name' => 'ダミー北陸製作所']);
+        $this->done(Product::factory()->create(['company_id' => $towa->id, 'name' => 'シャフト']), '2026-11-10 10:00:00');
+        $this->done(Product::factory()->create(['company_id' => $towa->id, 'name' => 'フランジ']), '2026-11-11 10:00:00');
+        $this->done(Product::factory()->create(['company_id' => $hokuriku->id, 'name' => 'シャフト']), '2026-11-12 10:00:00');
+
+        $this->get("/history?company={$towa->id}")->assertInertia(fn (Assert $page) => $page
+            ->where('companyId', $towa->id)
+            ->where('products.total', 2)
+            ->where('products.data', fn ($data) => collect($data)->every(fn ($p) => $p['companyName'] === 'ダミー東和工業')));
+        $this->get("/history?company={$towa->id}&q=".urlencode('シャ'))->assertInertia(fn (Assert $page) => $page
+            ->where('products.total', 1)
+            ->where('products.data.0.name', 'シャフト')
+            ->where('products.data.0.companyName', 'ダミー東和工業'));
+    }
+
+    /**
+     * 取引会社のプルダウンには、完了した指示がある会社だけを、完了した指示がある製品の数と一緒に出す
+     */
+    public function test_company_options_are_only_companies_with_done_orders(): void
+    {
+        $towa = Company::factory()->create(['name' => 'ダミー東和工業']);
+        $chuo = Company::factory()->create(['name' => 'ダミー中央機械']);
+        $notYet = Company::factory()->create(['name' => 'ダミー北陸製作所']);
+        $this->done(Product::factory()->create(['company_id' => $towa->id]), '2026-11-10 10:00:00');
+        $this->done(Product::factory()->create(['company_id' => $towa->id]), '2026-11-11 10:00:00');
+        // 完了していない製品は数えない
+        ProductionOrder::factory()->status(OrderStatus::InProgress)->create(['product_id' => Product::factory()->create(['company_id' => $towa->id])->id]);
+        $this->done(Product::factory()->create(['company_id' => $chuo->id]), '2026-11-12 10:00:00');
+        ProductionOrder::factory()->status(OrderStatus::InProgress)->create(['product_id' => Product::factory()->create(['company_id' => $notYet->id])->id]);
+
+        $this->get('/history')->assertInertia(fn (Assert $page) => $page
+            ->where('companyId', null)
+            ->where('companies', [
+                ['id' => $chuo->id, 'name' => 'ダミー中央機械', 'productsCount' => 1],
+                ['id' => $towa->id, 'name' => 'ダミー東和工業', 'productsCount' => 2],
+            ]));
+    }
+
     public function test_cards_are_split_into_pages(): void
     {
         $products = Product::factory()->count(HistoryController::PER_PAGE + 1)->create();
