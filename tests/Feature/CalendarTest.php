@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\AbsenceType;
 use App\Models\Absence;
 use App\Models\CalendarEvent;
+use App\Models\CompanyHoliday;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -119,7 +120,7 @@ class CalendarTest extends TestCase
         $queries = collect(DB::getQueryLog());
         DB::disableQueryLog();
 
-        foreach (['absences', 'calendar_events'] as $table) {
+        foreach (['absences', 'calendar_events', 'company_holidays'] as $table) {
             $query = $queries->first(fn ($q) => str_contains($q['query'], "from `{$table}`"));
             $this->assertNotNull($query, "{$table} を読んでいない");
             $this->assertStringContainsString('between', $query['query']);
@@ -212,6 +213,60 @@ class CalendarTest extends TestCase
         $this->post('/admin/calendar-events', ['date' => '2026-12-29', 'title' => '棚卸', 'body' => str_repeat('あ', 200)])->assertSessionHasNoErrors();
 
         $this->assertSame(1, CalendarEvent::count());
+    }
+
+    /**
+     * 会社の休みの日は、だれが見ても分かる（マスの色を変えるための印）（D-042）
+     */
+    public function test_company_holidays_are_marked_for_everyone(): void
+    {
+        CompanyHoliday::create(['date' => '2026-12-29']);
+        CompanyHoliday::create(['date' => '2026-12-30']);
+
+        $this->assertGuest();
+        $this->get('/calendar?month=2026-12')->assertInertia(fn (Assert $page) => $page
+            ->where('days', fn ($days) => self::day($days->all(), '2026-12-29')['isHoliday'] === true
+                && self::day($days->all(), '2026-12-30')['isHoliday'] === true
+                && self::day($days->all(), '2026-12-28')['isHoliday'] === false));
+    }
+
+    public function test_admin_can_turn_a_company_holiday_on_and_off(): void
+    {
+        $this->asAdmin()->from('/calendar?month=2026-12');
+
+        $this->put('/admin/company-holidays', ['date' => '2026-12-29', 'holiday' => true])
+            ->assertRedirect('/calendar?month=2026-12')->assertSessionHasNoErrors();
+        $this->assertTrue(CompanyHoliday::whereDate('date', '2026-12-29')->exists());
+
+        $this->put('/admin/company-holidays', ['date' => '2026-12-29', 'holiday' => false])->assertSessionHasNoErrors();
+        $this->assertFalse(CompanyHoliday::whereDate('date', '2026-12-29')->exists());
+    }
+
+    /**
+     * 2回続けて押されても（2台でほぼ同時に押されても）、思ったのと逆にならない
+     */
+    public function test_setting_a_company_holiday_twice_keeps_the_same_result(): void
+    {
+        $this->asAdmin()->from('/calendar');
+
+        $this->put('/admin/company-holidays', ['date' => '2026-12-29', 'holiday' => true]);
+        $this->put('/admin/company-holidays', ['date' => '2026-12-29', 'holiday' => true])->assertSessionHasNoErrors();
+        $this->assertSame(1, CompanyHoliday::count());
+
+        $this->put('/admin/company-holidays', ['date' => '2026-12-29', 'holiday' => false]);
+        $this->put('/admin/company-holidays', ['date' => '2026-12-29', 'holiday' => false])->assertSessionHasNoErrors();
+        $this->assertSame(0, CompanyHoliday::count());
+    }
+
+    public function test_company_holiday_requires_the_admin_password_and_valid_input(): void
+    {
+        $this->put('/admin/company-holidays', ['date' => '2026-12-29', 'holiday' => true])->assertRedirect('/admin/login');
+        $this->assertSame(0, CompanyHoliday::count());
+
+        $this->asAdmin()->from('/calendar');
+        $this->put('/admin/company-holidays', ['date' => '12/29', 'holiday' => true])->assertSessionHasErrors('date');
+        $this->put('/admin/company-holidays', ['date' => '2026-12-29'])->assertSessionHasErrors('holiday');
+        $this->assertSame(0, CompanyHoliday::count());
     }
 
     /**

@@ -6,6 +6,7 @@ use App\Enums\AbsenceType;
 use App\Http\Controllers\Controller;
 use App\Models\Absence;
 use App\Models\CalendarEvent;
+use App\Models\CompanyHoliday;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -15,6 +16,29 @@ use Illuminate\Validation\Rule;
  */
 class CalendarController extends Controller
 {
+    /**
+     * 会社の休みにする・やめる（D-042）。送られてきた「休みにするか」のとおりにする
+     * （押すたびに入れかえる形にしないのは、2回続けて押されても、思ったのと逆にならないようにするため）
+     */
+    public function setHoliday(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'date' => ['required', 'date_format:Y-m-d'],
+            'holiday' => ['required', 'boolean'],
+        ], [
+            'date.required' => '日付がありません。',
+            'date.date_format' => '日付の形がちがいます。',
+        ]);
+
+        if ($validated['holiday']) {
+            CompanyHoliday::firstOrCreate(['date' => $validated['date']]);
+        } else {
+            CompanyHoliday::where('date', $validated['date'])->delete();
+        }
+
+        return back();
+    }
+
     public function storeAbsence(Request $request): RedirectResponse
     {
         $validated = $request->validate([
