@@ -1,10 +1,8 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import type { BoardColumn, Order } from '../types';
 
 type Props = {
     columns: BoardColumn[];
-    doneTotal: number;
-    doneLimit: number;
 };
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
@@ -19,7 +17,7 @@ function formatDate(value: string): string {
     return `${month}/${day}(${WEEKDAYS[date.getDay()]})`;
 }
 
-// 列ごとの見出しの色
+// 列ごとの見出しの線の色
 const COLUMN_STYLES: Record<BoardColumn['status'], string> = {
     not_started: 'border-gray-400',
     in_progress: 'border-blue-500',
@@ -30,7 +28,10 @@ function OrderCard({ order }: { order: Order }) {
     return (
         <li className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
             <div className="flex items-start justify-between gap-2">
-                <p className="font-semibold text-gray-900">{order.productName}</p>
+                <div>
+                    {order.productCode && <p className="text-xs text-gray-500">{order.productCode}</p>}
+                    <p className="font-semibold text-gray-900">{order.productName}</p>
+                </div>
                 {order.isDummy && (
                     <span className="shrink-0 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800">
                         ダミー
@@ -47,24 +48,31 @@ function OrderCard({ order }: { order: Order }) {
                 <dt className="text-gray-500">納期</dt>
                 <dd className="font-medium text-gray-900">{formatDate(order.dueDate)}</dd>
                 <dt className="text-gray-500">担当</dt>
-                <dd className={order.assignee ? 'text-gray-900' : 'text-red-700'}>
-                    {order.assignee ?? '未割り当て'}
+                <dd className={order.assignees.length > 0 ? 'text-gray-900' : 'text-red-700'}>
+                    {order.assignees.length > 0 ? order.assignees.join('、') : '未割り当て'}
                 </dd>
             </dl>
         </li>
     );
 }
 
-export default function Board({ columns, doneTotal, doneLimit }: Props) {
+export default function Board({ columns }: Props) {
     return (
         <>
             <Head title="進み具合のボード" />
             <div className="min-h-screen bg-gray-50">
-                <header className="border-b border-gray-200 bg-white px-4 py-3">
+                <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
                     <h1 className="text-xl font-semibold text-gray-900">進み具合のボード</h1>
+                    {/* 完了した指示はボードに出さず、履歴の画面で見る（D-016） */}
+                    <Link
+                        href="/history"
+                        className="rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800"
+                    >
+                        完了の履歴
+                    </Link>
                 </header>
 
-                <main className="grid gap-4 p-4 md:grid-cols-3">
+                <main className="grid gap-4 p-4 md:grid-cols-2">
                     {columns.map((column) => (
                         <section key={column.status} aria-labelledby={`column-${column.status}`}>
                             <h2
@@ -72,9 +80,7 @@ export default function Board({ columns, doneTotal, doneLimit }: Props) {
                                 className={`mb-3 flex items-baseline justify-between border-b-4 pb-1 ${COLUMN_STYLES[column.status]}`}
                             >
                                 <span className="text-lg font-semibold text-gray-900">{column.label}</span>
-                                <span className="text-sm text-gray-600">
-                                    {column.status === 'done' ? doneTotal : column.orders.length}件
-                                </span>
+                                <span className="text-sm text-gray-600">{column.orders.length}件</span>
                             </h2>
 
                             {column.orders.length === 0 ? (
@@ -85,12 +91,6 @@ export default function Board({ columns, doneTotal, doneLimit }: Props) {
                                         <OrderCard key={order.id} order={order} />
                                     ))}
                                 </ul>
-                            )}
-
-                            {column.status === 'done' && doneTotal > doneLimit && (
-                                <p className="mt-2 text-sm text-gray-500">
-                                    新しいもの{doneLimit}件だけを表示しています
-                                </p>
                             )}
                         </section>
                     ))}

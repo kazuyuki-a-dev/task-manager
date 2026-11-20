@@ -7,7 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 /**
@@ -36,10 +36,10 @@ class User extends Authenticatable
     /**
      * この社員が担当している製造指示
      *
-     * @return HasMany<ProductionOrder, $this>
+     * @return BelongsToMany<ProductionOrder, $this>
      */
-    public function assignedOrders(): HasMany
+    public function assignedOrders(): BelongsToMany
     {
-        return $this->hasMany(ProductionOrder::class, 'assignee_id');
+        return $this->belongsToMany(ProductionOrder::class, 'order_assignees')->withTimestamps();
     }
 }

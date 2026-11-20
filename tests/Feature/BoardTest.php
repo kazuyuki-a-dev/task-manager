@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\OrderStatus;
-use App\Http\Controllers\BoardController;
+use App\Models\Product;
 use App\Models\ProductionOrder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,19 +18,17 @@ class BoardTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_board_shows_three_columns_in_status_order(): void
+    public function test_board_shows_not_started_and_in_progress_columns_only(): void
     {
         $this->get('/')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Board')
-                ->has('columns', 3)
+                ->has('columns', 2)
                 ->where('columns.0.status', 'not_started')
                 ->where('columns.0.label', '未着手')
                 ->where('columns.1.status', 'in_progress')
                 ->where('columns.1.label', '作業中')
-                ->where('columns.2.status', 'done')
-                ->where('columns.2.label', '完了')
             );
     }
 
@@ -38,84 +36,102 @@ class BoardTest extends TestCase
     {
         ProductionOrder::factory()->count(2)->status(OrderStatus::NotStarted)->create();
         ProductionOrder::factory()->count(3)->status(OrderStatus::InProgress)->create();
-        ProductionOrder::factory()->count(1)->status(OrderStatus::Done)->create();
 
         $this->get('/')->assertInertia(fn (Assert $page) => $page
             ->has('columns.0.orders', 2)
             ->has('columns.1.orders', 3)
-            ->has('columns.2.orders', 1)
             ->where('columns.0.orders.0.status', 'not_started')
             ->where('columns.1.orders.0.status', 'in_progress')
-            ->where('columns.2.orders.0.status', 'done')
         );
     }
 
-    public function test_each_order_shows_product_quantity_dates_assignee_and_status(): void
+    /**
+     * 完了した指示はボードに出さない（D-016）
+     */
+    public function test_done_orders_are_not_shown_on_the_board(): void
     {
-        $worker = User::factory()->create(['name' => '山田 太郎']);
-        ProductionOrder::factory()->create([
-            'product_name' => 'シャフト-001',
+        ProductionOrder::factory()->status(OrderStatus::NotStarted)->create();
+        ProductionOrder::factory()->count(3)->status(OrderStatus::Done)->create();
+
+        $this->get('/')->assertInertia(fn (Assert $page) => $page
+            ->has('columns', 2)
+            ->has('columns.0.orders', 1)
+            ->has('columns.1.orders', 0)
+        );
+    }
+
+    public function test_each_order_shows_product_quantity_dates_assignees_and_status(): void
+    {
+        $product = Product::factory()->create(['code' => 'SH-0660', 'name' => 'シャフト']);
+        $order = ProductionOrder::factory()->status(OrderStatus::InProgress)->create([
+            'product_id' => $product->id,
             'quantity' => 120,
             'material_ready_date' => '2026-11-18',
             'due_date' => '2026-11-22',
-            'assignee_id' => $worker->id,
-            'status' => OrderStatus::InProgress,
         ]);
+        $order->assignees()->attach(User::factory()->create(['name' => '山田 太郎']));
 
         $this->get('/')->assertInertia(fn (Assert $page) => $page
-            ->has('columns.1.orders.0', fn (Assert $order) => $order
-                ->has('id')
-                ->where('productName', 'シャフト-001')
+            ->has('columns.1.orders.0', fn (Assert $card) => $card
+                ->where('id', $order->id)
+                ->where('productCode', 'SH-0660')
+                ->where('productName', 'シャフト')
                 ->where('quantity', 120)
                 ->where('materialReadyDate', '2026-11-18')
                 ->where('dueDate', '2026-11-22')
-                ->where('assignee', '山田 太郎')
+                ->where('assignees', ['山田 太郎'])
                 ->where('status', 'in_progress')
                 ->where('isDummy', false)
             )
         );
     }
 
-    public function test_order_without_assignee_or_material_date_is_shown_as_empty(): void
+    /**
+     * 担当は何人でも入れられ、足した順に並ぶ（D-018）
+     */
+    public function test_order_shows_all_assignees_in_the_order_they_were_added(): void
+    {
+        $order = ProductionOrder::factory()->create();
+        $first = User::factory()->create(['name' => '渡辺 一郎']);
+        $second = User::factory()->create(['name' => '青木 花子']);
+        $third = User::factory()->create(['name' => '佐藤 次郎']);
+        $order->assignees()->attach($first);
+        $order->assignees()->attach($second);
+        $order->assignees()->attach($third);
+
+        $this->get('/')->assertInertia(fn (Assert $page) => $page
+            ->where('columns.0.orders.0.assignees', ['渡辺 一郎', '青木 花子', '佐藤 次郎'])
+        );
+    }
+
+    public function test_order_without_assignees_product_code_or_material_date_is_shown_as_empty(): void
     {
         ProductionOrder::factory()->create([
-            'assignee_id' => null,
+            'product_id' => Product::factory()->withoutCode(),
             'material_ready_date' => null,
         ]);
 
         $this->get('/')->assertInertia(fn (Assert $page) => $page
-            ->where('columns.0.orders.0.assignee', null)
+            ->where('columns.0.orders.0.assignees', [])
+            ->where('columns.0.orders.0.productCode', null)
             ->where('columns.0.orders.0.materialReadyDate', null)
         );
     }
 
-    public function test_active_orders_are_sorted_by_nearest_due_date(): void
+    public function test_orders_are_sorted_by_nearest_due_date(): void
     {
-        ProductionOrder::factory()->create(['product_name' => '遅い', 'due_date' => '2026-12-10']);
-        ProductionOrder::factory()->create(['product_name' => '早い', 'due_date' => '2026-11-21']);
-        ProductionOrder::factory()->create(['product_name' => '中間', 'due_date' => '2026-11-30']);
+        $make = fn (string $name, string $due) => ProductionOrder::factory()->create([
+            'product_id' => Product::factory()->create(['name' => $name]),
+            'due_date' => $due,
+        ]);
+        $make('遅い', '2026-12-10');
+        $make('早い', '2026-11-21');
+        $make('中間', '2026-11-30');
 
         $this->get('/')->assertInertia(fn (Assert $page) => $page
             ->where('columns.0.orders.0.productName', '早い')
             ->where('columns.0.orders.1.productName', '中間')
             ->where('columns.0.orders.2.productName', '遅い')
-        );
-    }
-
-    public function test_done_column_shows_only_the_newest_up_to_the_limit_with_total_count(): void
-    {
-        $limit = BoardController::DONE_LIMIT;
-
-        ProductionOrder::factory()->count($limit)->status(OrderStatus::Done)
-            ->create(['updated_at' => now()->subDays(3)]);
-        $newest = ProductionOrder::factory()->status(OrderStatus::Done)
-            ->create(['updated_at' => now()]);
-
-        $this->get('/')->assertInertia(fn (Assert $page) => $page
-            ->has('columns.2.orders', $limit)
-            ->where('columns.2.orders.0.id', $newest->id)
-            ->where('doneTotal', $limit + 1)
-            ->where('doneLimit', $limit)
         );
     }
 
@@ -129,25 +145,32 @@ class BoardTest extends TestCase
     }
 
     /**
-     * 指示が増えても、データベースへの問い合わせの回数が増えないこと（担当の名前を1件ずつ読まない）
+     * 指示が増えても、データベースへの問い合わせの回数が増えないこと（製品や担当を1件ずつ読まない）
      */
     public function test_query_count_does_not_grow_with_number_of_orders(): void
     {
         $workers = User::factory()->count(5)->create();
-        // 状態はくじ引きにせず、順番に割り当てる。
-        // どこかの列が0件だと、担当の名前を読む問い合わせが省かれて回数が変わってしまうため
-        $makeOrders = fn (int $count) => ProductionOrder::factory()->count($count)
-            ->sequence(...array_map(fn (OrderStatus $status) => ['status' => $status], OrderStatus::cases()))
-            ->state(fn () => ['assignee_id' => $workers->random()->id])
-            ->create();
+        $makeOrders = function (int $count) use ($workers) {
+            ProductionOrder::factory()->count($count)
+                ->sequence(['status' => OrderStatus::NotStarted], ['status' => OrderStatus::InProgress])
+                ->create()
+                ->each(fn (ProductionOrder $order) => $order->assignees()->attach($workers->random(2)->pluck('id')));
+        };
 
-        $makeOrders(3);
+        $makeOrders(4);
         $few = $this->countQueries(fn () => $this->get('/')->assertOk());
 
         $makeOrders(60);
         $many = $this->countQueries(fn () => $this->get('/')->assertOk());
 
         $this->assertSame($few, $many);
+    }
+
+    public function test_history_page_is_reachable_from_the_board(): void
+    {
+        $this->get('/history')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('History'));
     }
 
     private function countQueries(callable $callback): int

@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\OrderStatus;
+use App\Models\Product;
 use App\Models\ProductionOrder;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -22,24 +23,33 @@ class DatabaseSeeder extends Seeder
         User::factory()->admin()->dummy()->create(['name' => 'ダミー管理者']);
         $workers = User::factory()->count(19)->dummy()->create();
 
+        // 製品15件。品番のないものも混ぜる（D-019）
+        $products = Product::factory()->count(12)->dummy()->create()
+            ->merge(Product::factory()->count(3)->withoutCode()->dummy()->create());
+
         $counts = [
             OrderStatus::NotStarted->value => 25,
             OrderStatus::InProgress->value => 15,
-            OrderStatus::Done->value => 20,
+            OrderStatus::Done->value => 40,
         ];
 
         foreach ($counts as $status => $count) {
+            $status = OrderStatus::from($status);
+
             ProductionOrder::factory()
                 ->count($count)
                 ->dummy()
-                ->status(OrderStatus::from($status))
-                // 未着手のうち、いくつかは担当をまだ決めていない
-                ->state(fn () => [
-                    'assignee_id' => $status === OrderStatus::NotStarted->value && fake()->boolean(20)
-                        ? null
-                        : $workers->random()->id,
-                ])
-                ->create();
+                ->status($status)
+                ->state(fn () => ['product_id' => $products->random()->id])
+                ->create()
+                ->each(function (ProductionOrder $order) use ($status, $workers) {
+                    // 未着手のうち、いくつかは担当をまだ決めていない
+                    if ($status === OrderStatus::NotStarted && fake()->boolean(20)) {
+                        return;
+                    }
+                    // 1〜3人で取りかかる（D-018）
+                    $order->assignees()->attach($workers->random(fake()->numberBetween(1, 3))->pluck('id'));
+                });
         }
     }
 }

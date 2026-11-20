@@ -8,11 +8,12 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * 製造指示。指示1件＝タスク1件（D-002）
  */
-#[Fillable(['product_name', 'quantity', 'material_ready_date', 'due_date', 'assignee_id', 'status', 'is_dummy'])]
+#[Fillable(['product_id', 'quantity', 'material_ready_date', 'due_date', 'status', 'started_at', 'completed_at', 'is_dummy'])]
 class ProductionOrder extends Model
 {
     /** @use HasFactory<ProductionOrderFactory> */
@@ -28,17 +29,29 @@ class ProductionOrder extends Model
             'material_ready_date' => 'date',
             'due_date' => 'date',
             'status' => OrderStatus::class,
+            'started_at' => 'datetime',
+            'completed_at' => 'datetime',
             'is_dummy' => 'boolean',
         ];
     }
 
     /**
-     * 担当の社員
-     *
-     * @return BelongsTo<User, $this>
+     * @return BelongsTo<Product, $this>
      */
-    public function assignee(): BelongsTo
+    public function product(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'assignee_id');
+        return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * 担当の社員（何人でも。D-018）。足した順に並べる
+     *
+     * @return BelongsToMany<User, $this>
+     */
+    public function assignees(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'order_assignees')
+            ->withTimestamps()
+            ->orderBy('order_assignees.id');
     }
 }
