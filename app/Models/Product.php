@@ -6,12 +6,13 @@ use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * 製品。品番は空でもよい（D-019）
  */
-#[Fillable(['code', 'name', 'is_dummy'])]
+#[Fillable(['company_id', 'code', 'name', 'is_dummy'])]
 class Product extends Model
 {
     /** @use HasFactory<ProductFactory> */
@@ -25,6 +26,16 @@ class Product extends Model
         return [
             'is_dummy' => 'boolean',
         ];
+    }
+
+    /**
+     * 取引会社（D-033）
+     *
+     * @return BelongsTo<Company, $this>
+     */
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
     }
 
     /**

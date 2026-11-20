@@ -3,6 +3,7 @@ import AdminLayout from '../../components/AdminLayout';
 
 // 管理者の画面のメニュー。href がないものは、これから作る
 const MENU: { label: string; requirement: string; href?: string }[] = [
+    { label: '取引会社', requirement: 'R-14', href: '/admin/companies' },
     { label: '製品の一覧', requirement: 'R-12', href: '/admin/products' },
     { label: '指示の登録・削除', requirement: 'R-03' },
     { label: '社員の登録', requirement: 'R-07' },

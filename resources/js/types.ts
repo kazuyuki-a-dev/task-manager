@@ -11,9 +11,17 @@ export type Member = {
     name: string;
 };
 
+/** 取引会社 */
+export type Company = {
+    id: number;
+    name: string;
+};
+
 /** 製品 */
 export type Product = {
     id: number;
+    /** 取引会社の名前 */
+    companyName: string;
     /** 品番。登録されていなければ null */
     code: string | null;
     name: string;
@@ -22,6 +30,8 @@ export type Product = {
 export type Order = {
     id: number;
     productId: number;
+    /** 取引会社の名前 */
+    companyName: string;
     /** 品番。登録されていなければ null */
     productCode: string | null;
     productName: string;

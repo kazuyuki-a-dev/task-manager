@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Admin\ProductController;
+use App\Models\Company;
 use App\Models\Product;
 use App\Models\ProductionOrder;
 use App\Models\User;
@@ -33,8 +34,8 @@ class AdminProductTest extends TestCase
         $product = Product::factory()->create();
 
         $this->get('/admin/products')->assertRedirect('/admin/login');
-        $this->post('/admin/products', ['name' => '新しい製品'])->assertRedirect('/admin/login');
-        $this->patch("/admin/products/{$product->id}", ['name' => '直した'])->assertRedirect('/admin/login');
+        $this->post('/admin/products', ['company_id' => $product->company_id, 'name' => '新しい製品'])->assertRedirect('/admin/login');
+        $this->patch("/admin/products/{$product->id}", ['company_id' => $product->company_id, 'name' => '直した'])->assertRedirect('/admin/login');
         $this->delete("/admin/products/{$product->id}")->assertRedirect('/admin/login');
 
         $this->assertSame(1, Product::count());
@@ -52,17 +53,43 @@ class AdminProductTest extends TestCase
             ->assertRedirect('/admin/login');
     }
 
-    public function test_list_shows_products_with_how_many_orders_use_them(): void
+    public function test_list_shows_products_with_company_and_how_many_orders_use_them(): void
     {
-        $used = Product::factory()->create(['code' => 'AA-0001', 'name' => 'シャフト']);
+        $company = Company::factory()->create(['name' => 'ダミー東和工業']);
+        $used = Product::factory()->create(['company_id' => $company->id, 'code' => 'AA-0001', 'name' => 'シャフト']);
         ProductionOrder::factory()->count(2)->create(['product_id' => $used->id]);
-        $unused = Product::factory()->withoutCode()->create(['name' => 'ステー']);
+        $unused = Product::factory()->withoutCode()->create(['company_id' => $company->id, 'name' => 'ステー']);
 
         $this->asAdmin()->get('/admin/products')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('admin/Products')
+            ->where('companyId', null)
+            ->where('companies', [['id' => $company->id, 'name' => 'ダミー東和工業']])
             ->where('products.total', 2)
-            ->where('products.data.0', ['id' => $used->id, 'code' => 'AA-0001', 'name' => 'シャフト', 'ordersCount' => 2, 'isDummy' => false])
-            ->where('products.data.1', ['id' => $unused->id, 'code' => null, 'name' => 'ステー', 'ordersCount' => 0, 'isDummy' => false])
+            ->where('products.data.0', ['id' => $used->id, 'companyId' => $company->id, 'companyName' => 'ダミー東和工業', 'code' => 'AA-0001', 'name' => 'シャフト', 'ordersCount' => 2, 'isDummy' => false])
+            ->where('products.data.1', ['id' => $unused->id, 'companyId' => $company->id, 'companyName' => 'ダミー東和工業', 'code' => null, 'name' => 'ステー', 'ordersCount' => 0, 'isDummy' => false])
+        );
+    }
+
+    /**
+     * 取引会社を選ぶと、その会社の製品だけが出る。品名を打てば、その会社の中でしぼられる（D-033）
+     */
+    public function test_choosing_a_company_shows_only_its_products(): void
+    {
+        $towa = Company::factory()->create();
+        $hokuriku = Company::factory()->create();
+        Product::factory()->create(['company_id' => $towa->id, 'name' => 'シャフト']);
+        Product::factory()->create(['company_id' => $towa->id, 'name' => 'フランジ']);
+        Product::factory()->create(['company_id' => $hokuriku->id, 'name' => 'シャフト']);
+
+        $this->asAdmin()->get("/admin/products?company={$towa->id}")->assertInertia(fn (Assert $page) => $page
+            ->where('companyId', $towa->id)
+            ->where('products.total', 2)
+            ->where('products.data', fn ($data) => collect($data)->every(fn ($p) => $p['companyId'] === $towa->id))
+        );
+        $this->get("/admin/products?company={$towa->id}&q=シャ")->assertInertia(fn (Assert $page) => $page
+            ->where('products.total', 1)
+            ->where('products.data.0.name', 'シャフト')
+            ->where('products.data.0.companyId', $towa->id)
         );
     }
 
@@ -113,22 +140,37 @@ class AdminProductTest extends TestCase
 
     public function test_admin_can_add_a_product_with_or_without_code(): void
     {
-        $this->asAdmin()->from('/admin/products')->post('/admin/products', ['code' => 'SH-0660', 'name' => 'シャフト'])
+        $c = Company::factory()->create()->id;
+        $this->asAdmin()->from('/admin/products')->post('/admin/products', ['company_id' => $c, 'code' => 'SH-0660', 'name' => 'シャフト'])
             ->assertRedirect('/admin/products')
             ->assertSessionHasNoErrors()
             ->assertSessionHas('notice', '製品を登録しました。');
         // 品番が空の製品は、いくつあってもよい
-        $this->post('/admin/products', ['code' => '', 'name' => 'ステー'])->assertSessionHasNoErrors();
-        $this->post('/admin/products', ['code' => '', 'name' => 'スペーサー'])->assertSessionHasNoErrors();
+        $this->post('/admin/products', ['company_id' => $c, 'code' => '', 'name' => 'ステー'])->assertSessionHasNoErrors();
+        $this->post('/admin/products', ['company_id' => $c, 'code' => '', 'name' => 'スペーサー'])->assertSessionHasNoErrors();
 
-        $this->assertDatabaseHas('products', ['code' => 'SH-0660', 'name' => 'シャフト', 'is_dummy' => false]);
+        $this->assertDatabaseHas('products', ['company_id' => $c, 'code' => 'SH-0660', 'name' => 'シャフト', 'is_dummy' => false]);
         $this->assertSame(2, Product::whereNull('code')->count());
     }
 
     public function test_name_is_required(): void
     {
-        $this->asAdmin()->from('/admin/products')->post('/admin/products', ['code' => 'SH-0660', 'name' => ''])
+        $c = Company::factory()->create()->id;
+        $this->asAdmin()->from('/admin/products')->post('/admin/products', ['company_id' => $c, 'code' => 'SH-0660', 'name' => ''])
             ->assertSessionHasErrors(['name' => '品名を入れてください。']);
+
+        $this->assertSame(0, Product::count());
+    }
+
+    /**
+     * 製品は必ずどこか1社の取引会社のもの（D-033）
+     */
+    public function test_company_is_required(): void
+    {
+        $this->asAdmin()->from('/admin/products')->post('/admin/products', ['name' => 'シャフト'])
+            ->assertSessionHasErrors(['company_id' => '取引会社を選んでください。']);
+        $this->post('/admin/products', ['company_id' => 999999, 'name' => 'シャフト'])
+            ->assertSessionHasErrors(['company_id' => '選んだ取引会社が見つかりません。']);
 
         $this->assertSame(0, Product::count());
     }
@@ -138,11 +180,12 @@ class AdminProductTest extends TestCase
      */
     public function test_the_same_code_cannot_be_registered_twice(): void
     {
-        Product::factory()->create(['code' => 'SH-0660']);
+        $existing = Product::factory()->create(['code' => 'SH-0660']);
+        $c = $existing->company_id;
 
-        $this->asAdmin()->from('/admin/products')->post('/admin/products', ['code' => 'SH-0660', 'name' => 'べつの製品'])
+        $this->asAdmin()->from('/admin/products')->post('/admin/products', ['company_id' => $c, 'code' => 'SH-0660', 'name' => 'べつの製品'])
             ->assertSessionHasErrors(['code' => 'その品番は、もう登録されています。']);
-        $this->post('/admin/products', ['code' => 'sh-0660', 'name' => 'べつの製品'])
+        $this->post('/admin/products', ['company_id' => $c, 'code' => 'sh-0660', 'name' => 'べつの製品'])
             ->assertSessionHasErrors('code');
 
         $this->assertSame(1, Product::count());
@@ -151,17 +194,19 @@ class AdminProductTest extends TestCase
     public function test_admin_can_update_a_product(): void
     {
         $product = Product::factory()->create(['code' => 'SH-0660', 'name' => 'シャフト']);
+        $other = Company::factory()->create();
 
         // 品番をそのままにして品名だけ直すのはよい（自分の品番とは重ならない）
-        $this->asAdmin()->from('/admin/products')->patch("/admin/products/{$product->id}", ['code' => 'SH-0660', 'name' => 'シャフト（長）'])
+        $this->asAdmin()->from('/admin/products')->patch("/admin/products/{$product->id}", ['company_id' => $product->company_id, 'code' => 'SH-0660', 'name' => 'シャフト（長）'])
             ->assertSessionHasNoErrors()
             ->assertSessionHas('notice', '製品を直しました。');
-        // 品番を空にもできる
-        $this->patch("/admin/products/{$product->id}", ['code' => '', 'name' => 'シャフト（長）'])->assertSessionHasNoErrors();
+        // 品番を空にも、取引会社を変えることもできる
+        $this->patch("/admin/products/{$product->id}", ['company_id' => $other->id, 'code' => '', 'name' => 'シャフト（長）'])->assertSessionHasNoErrors();
 
         $product->refresh();
         $this->assertNull($product->code);
         $this->assertSame('シャフト（長）', $product->name);
+        $this->assertSame($other->id, $product->company_id);
     }
 
     public function test_update_cannot_take_another_products_code(): void
@@ -169,7 +214,7 @@ class AdminProductTest extends TestCase
         Product::factory()->create(['code' => 'FL-0100']);
         $product = Product::factory()->create(['code' => 'SH-0660']);
 
-        $this->asAdmin()->from('/admin/products')->patch("/admin/products/{$product->id}", ['code' => 'FL-0100', 'name' => 'シャフト'])
+        $this->asAdmin()->from('/admin/products')->patch("/admin/products/{$product->id}", ['company_id' => $product->company_id, 'code' => 'FL-0100', 'name' => 'シャフト'])
             ->assertSessionHasErrors('code');
 
         $this->assertSame('SH-0660', $product->refresh()->code);
@@ -205,10 +250,11 @@ class AdminProductTest extends TestCase
      */
     public function test_new_product_appears_in_the_board_picker(): void
     {
-        $this->asAdmin()->post('/admin/products', ['code' => 'NW-0001', 'name' => '新しい製品']);
+        $c = Company::factory()->create(['name' => 'ダミー東和工業'])->id;
+        $this->asAdmin()->post('/admin/products', ['company_id' => $c, 'code' => 'NW-0001', 'name' => '新しい製品']);
 
         $this->get('/')->assertInertia(fn (Assert $page) => $page
-            ->where('products', fn ($products) => collect($products)->contains('name', '新しい製品'))
+            ->where('products', fn ($products) => collect($products)->contains(fn ($p) => $p['name'] === '新しい製品' && $p['companyName'] === 'ダミー東和工業'))
         );
     }
 }

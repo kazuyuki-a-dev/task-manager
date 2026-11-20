@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\Product;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,9 +25,13 @@ class ProductController extends Controller
     public function index(Request $request): Response
     {
         $q = trim((string) $request->query('q', ''));
+        // 選んでいる取引会社。選んでいなければ、すべての会社の製品を出す
+        $companyId = $request->integer('company') ?: null;
 
         $products = Product::query()
+            ->with('company:id,name')
             ->withCount('orders')
+            ->when($companyId !== null, fn ($query) => $query->where('company_id', $companyId))
             ->when($q !== '', function ($query) use ($q) {
                 // 「%」や「_」を打っても、何にでも合う印として扱われないようにする
                 $like = '%'.addcslashes($q, '%_\\').'%';
@@ -42,9 +47,17 @@ class ProductController extends Controller
 
         return Inertia::render('admin/Products', [
             'q' => $q,
+            'companyId' => $companyId,
+            'companies' => Company::query()
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(fn (Company $company) => ['id' => $company->id, 'name' => $company->name])
+                ->all(),
             'products' => [
                 'data' => $products->getCollection()->map(fn (Product $product) => [
                     'id' => $product->id,
+                    'companyId' => $product->company_id,
+                    'companyName' => $product->company->name,
                     'code' => $product->code,
                     'name' => $product->name,
                     'ordersCount' => $product->orders_count,
@@ -88,15 +101,19 @@ class ProductController extends Controller
     }
 
     /**
-     * @return array{code: ?string, name: string}
+     * @return array{company_id: int, code: ?string, name: string}
      */
     private function validated(Request $request, ?Product $product = null): array
     {
         return $request->validate([
+            // 製品は必ずどこか1社の取引会社のもの（D-033）
+            'company_id' => ['required', 'integer', 'exists:companies,id'],
             // 空の品番は null になる（Laravel が空の文字を null に直す）。null どうしは重なってもよい
             'code' => ['nullable', 'string', 'max:50', Rule::unique('products', 'code')->ignore($product?->id)],
             'name' => ['required', 'string', 'max:255'],
         ], [
+            'company_id.required' => '取引会社を選んでください。',
+            'company_id.exists' => '選んだ取引会社が見つかりません。',
             'code.unique' => 'その品番は、もう登録されています。',
             'code.max' => '品番は50文字までにしてください。',
             'name.required' => '品名を入れてください。',
