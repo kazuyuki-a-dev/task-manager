@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\OrderLogAction;
 use App\Enums\OrderStatus;
 use Database\Factories\ProductionOrderFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * 製造指示。指示1件＝タスク1件（D-002）
@@ -74,8 +76,41 @@ class ProductionOrder extends Model
             $this->completed_at = $now;
         }
 
+        $previous = $this->status;
         $this->status = $next;
         $this->save();
+
+        $this->log(OrderLogAction::Status, $previous->label(), $next->label());
+    }
+
+    /**
+     * 変更の記録を1つ残す（R-08・D-041）。だれが変えたかは残さない（D-023）
+     */
+    public function log(OrderLogAction $action, ?string $old = null, ?string $new = null): void
+    {
+        $this->logs()->create([
+            'action' => $action,
+            'old_value' => $old,
+            'new_value' => $new,
+        ]);
+    }
+
+    /**
+     * 記録に残す製品の名前。あとで製品や会社の名前を直しても、記録は当時のまま
+     */
+    public static function productLabel(Product $product): string
+    {
+        return $product->company->name.'・'.($product->code !== null ? $product->code.' ' : '').$product->name;
+    }
+
+    /**
+     * 変更の記録。新しい順
+     *
+     * @return HasMany<OrderLog, $this>
+     */
+    public function logs(): HasMany
+    {
+        return $this->hasMany(OrderLog::class)->orderByDesc('id');
     }
 
     /**

@@ -10,6 +10,13 @@ export function formatDate(value: string): string {
     return `${month}/${day}(${WEEKDAYS[date.getDay()]})`;
 }
 
+/** 'YYYY-MM-DD HH:mm' を「11/20(金) 9:15」の形にする */
+export function formatDateTime(value: string): string {
+    const [date, time] = value.split(' ');
+    const [hour, minute] = time.split(':');
+    return `${formatDate(date)} ${Number(hour)}:${minute}`;
+}
+
 /** 「3日遅れ」「今日まで」「あと2日」 */
 export function deadlineText(daysLeft: number): string {
     if (daysLeft < 0) return `${-daysLeft}日遅れ`;
