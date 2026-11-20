@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\Deadline;
 use App\Enums\OrderStatus;
+use App\Models\OrderLog;
 use App\Models\Product;
 use App\Models\ProductionOrder;
 use App\Models\User;
@@ -26,7 +27,7 @@ class BoardController extends Controller
     {
         // 納期の近い順。製品と担当はまとめて読む（指示が増えても問い合わせの回数を増やさない）
         $orders = ProductionOrder::query()
-            ->with(['product:id,company_id,code,name', 'product.company:id,name', 'assignees:id,name'])
+            ->with(['product:id,company_id,code,name', 'product.company:id,name', 'assignees:id,name', 'logs'])
             ->whereIn('status', self::STATUSES)
             ->orderBy('due_date')
             ->orderBy('id')
@@ -104,6 +105,15 @@ class BoardController extends Controller
                 'startBlockers' => $order->startBlockers(),
                 // 小さな画面で直すときに、ほかの端末の直しを上書きしないための印
                 'version' => $order->updated_at->toIso8601String(),
+                // 変更の記録（R-08）。新しい順
+                'logs' => $order->logs->map(fn (OrderLog $log) => [
+                    'id' => $log->id,
+                    'action' => $log->action->value,
+                    'label' => $log->action->label(),
+                    'oldValue' => $log->old_value,
+                    'newValue' => $log->new_value,
+                    'at' => $log->created_at->format('Y-m-d H:i'),
+                ])->all(),
             ];
         })->all();
     }

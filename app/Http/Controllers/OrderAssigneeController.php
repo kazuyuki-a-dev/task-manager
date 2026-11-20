@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\OrderLogAction;
 use App\Models\ProductionOrder;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -31,6 +32,7 @@ class OrderAssigneeController extends Controller
         ]);
 
         $order->assignees()->attach($validated['user_id']);
+        $order->log(OrderLogAction::AssigneeAdded, null, User::find($validated['user_id'])->name);
 
         return back();
     }
@@ -43,6 +45,7 @@ class OrderAssigneeController extends Controller
                 'user_id' => "{$user->name}さんは、もう担当から外れていました。ほかの端末で先に変わっていました。",
             ]);
         }
+        $order->log(OrderLogAction::AssigneeRemoved, $user->name, null);
 
         return back();
     }

@@ -52,6 +52,21 @@ export type Order = {
     startBlockers: string[];
     /** 最後に直された日時。ほかの端末の直しを上書きしないために、直すときに一緒に送る */
     version: string;
+    /** 変更の記録。新しい順 */
+    logs: OrderLogEntry[];
+};
+
+/** 変更の記録の1つ（R-08） */
+export type OrderLogEntry = {
+    id: number;
+    /** created / status / product / quantity / material_ready_date / due_date / assignee_added / assignee_removed */
+    action: string;
+    /** 「状態」「納期」「担当を足した」など */
+    label: string;
+    oldValue: string | null;
+    newValue: string | null;
+    /** 'YYYY-MM-DD HH:mm' */
+    at: string;
 };
 
 export type BoardColumn = {

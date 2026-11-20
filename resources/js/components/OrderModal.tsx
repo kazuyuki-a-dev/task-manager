@@ -1,7 +1,7 @@
 import { router, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { formatDate } from '../lib/date';
-import type { Member, Order, OrderStatus, PageErrors, Product, SharedProps } from '../types';
+import { formatDate, formatDateTime } from '../lib/date';
+import type { Member, Order, OrderLogEntry, OrderStatus, PageErrors, Product, SharedProps } from '../types';
 
 type Props = {
     order: Order;
@@ -69,6 +69,7 @@ export default function OrderModal({ order, members, products, errors, onClose }
                     <StatusSection order={order} onClose={onClose} />
                     <AssigneeSection order={order} members={members} />
                     <DetailForm order={order} products={products} onSaved={onClose} />
+                    <LogSection logs={order.logs} />
                     <DeleteSection order={order} />
                 </div>
             </div>
@@ -243,6 +244,54 @@ function DeleteSection({ order }: { order: Order }) {
                 この指示を消す
             </button>
         </section>
+    );
+}
+
+// 日付で残している記録。画面では「11/25(水)」の形にする
+const DATE_ACTIONS = new Set(['material_ready_date', 'due_date']);
+
+function logValue(entry: OrderLogEntry, value: string | null): string {
+    if (value === null) return entry.action === 'material_ready_date' ? '未定' : '';
+    if (DATE_ACTIONS.has(entry.action)) return formatDate(value);
+    if (entry.action === 'quantity') return Number(value).toLocaleString();
+    return value;
+}
+
+/** 1つの記録を、1行の文にする */
+function logText(entry: OrderLogEntry): string {
+    switch (entry.action) {
+        case 'created':
+            return entry.label;
+        case 'assignee_added':
+            return `${entry.label}：${entry.newValue}`;
+        case 'assignee_removed':
+            return `${entry.label}：${entry.oldValue}`;
+        default:
+            return `${entry.label}：${logValue(entry, entry.oldValue)} → ${logValue(entry, entry.newValue)}`;
+    }
+}
+
+/**
+ * 変更の記録（R-08）。いつ・何を（何から何に）変えたか。だれが変えたかは残さない（D-023）。
+ * 小さな画面が長くなりすぎないように、ふだんはたたんでおく
+ */
+function LogSection({ logs }: { logs: OrderLogEntry[] }) {
+    return (
+        <details className="rounded-lg border border-gray-200">
+            <summary className="cursor-pointer px-3 py-2.5 text-sm font-semibold text-gray-700">変更の記録（{logs.length}件）</summary>
+            {logs.length === 0 ? (
+                <p className="px-3 pb-3 text-sm text-gray-500">まだ記録はありません</p>
+            ) : (
+                <ul className="divide-y divide-gray-100 px-3 pb-2">
+                    {logs.map((entry) => (
+                        <li key={entry.id} className="flex gap-3 py-1.5 text-sm">
+                            <span className="w-32 shrink-0 text-gray-500">{formatDateTime(entry.at)}</span>
+                            <span className="min-w-0 text-gray-900">{logText(entry)}</span>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </details>
     );
 }
 

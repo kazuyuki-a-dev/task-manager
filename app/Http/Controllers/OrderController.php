@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\OrderLogAction;
+use App\Models\Product;
 use App\Models\ProductionOrder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -43,12 +45,40 @@ class OrderController extends Controller
                 ]);
             }
 
+            // 直す前の値を、記録に残すためにとっておく
+            $before = [
+                'product_id' => $order->product_id,
+                'quantity' => (string) $order->quantity,
+                'material_ready_date' => $order->material_ready_date?->toDateString(),
+                'due_date' => $order->due_date->toDateString(),
+            ];
+
             $order->update([
                 'product_id' => $validated['product_id'],
                 'quantity' => $validated['quantity'],
                 'material_ready_date' => $validated['material_ready_date'] ?? null,
                 'due_date' => $validated['due_date'],
             ]);
+
+            // 変わった項目だけを、1つずつ記録に残す（R-08）
+            if ($before['product_id'] !== $order->product_id) {
+                $old = Product::with('company')->find($before['product_id']);
+                $order->log(
+                    OrderLogAction::Product,
+                    $old ? ProductionOrder::productLabel($old) : null,
+                    ProductionOrder::productLabel($order->product()->with('company')->first()),
+                );
+            }
+            $after = [
+                'quantity' => (string) $order->quantity,
+                'material_ready_date' => $order->material_ready_date?->toDateString(),
+                'due_date' => $order->due_date->toDateString(),
+            ];
+            foreach (['quantity' => OrderLogAction::Quantity, 'material_ready_date' => OrderLogAction::MaterialReadyDate, 'due_date' => OrderLogAction::DueDate] as $field => $action) {
+                if ($before[$field] !== $after[$field]) {
+                    $order->log($action, $before[$field], $after[$field]);
+                }
+            }
         });
 
         return back();
