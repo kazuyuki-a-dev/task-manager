@@ -95,15 +95,18 @@ function StatusButton({ order }: { order: Order }) {
         );
     };
 
+    // カードの右下に置く。指で押しやすい高さ（約44px）は残す
     return (
-        <button
-            type="button"
-            onClick={change}
-            disabled={processing}
-            className={`mt-3 w-full rounded-lg px-4 py-3 text-base font-bold text-white disabled:opacity-50 ${action.style}`}
-        >
-            {processing ? '変えています…' : action.label}
-        </button>
+        <div className="mt-2 flex justify-end">
+            <button
+                type="button"
+                onClick={change}
+                disabled={processing}
+                className={`rounded-lg px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50 ${action.style}`}
+            >
+                {processing ? '変えています…' : action.label}
+            </button>
+        </div>
     );
 }
 
