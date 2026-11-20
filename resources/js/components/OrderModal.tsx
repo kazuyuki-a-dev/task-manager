@@ -42,7 +42,10 @@ export default function OrderModal({ order, members, products, errors, onClose }
             <div className="max-h-[85vh] overflow-y-auto">
                 <header className="sticky top-0 flex items-start justify-between gap-2 border-b border-gray-200 bg-white px-4 py-3">
                     <div>
-                        {order.productCode && <p className="text-sm text-gray-500">{order.productCode}</p>}
+                        <p className="text-sm text-gray-500">
+                            {order.companyName}
+                            {order.productCode && `・${order.productCode}`}
+                        </p>
                         <h2 id="order-modal-title" className="text-lg font-semibold text-gray-900">
                             {order.productName}
                         </h2>
@@ -215,7 +218,7 @@ const normalize = (value: string) => value.trim().toLowerCase();
 // 候補が多すぎると選びにくいので、出すのはここまで
 const MAX_CANDIDATES = 30;
 
-/** 製品を、品番か品名の一部で探して選ぶ（R-12・D-019） */
+/** 製品を、取引会社・品番・品名の一部で探して選ぶ（R-12・D-019・D-033） */
 function ProductPicker({ products, value, onChange, error }: {
     products: Product[];
     value: number;
@@ -229,7 +232,12 @@ function ProductPicker({ products, value, onChange, error }: {
         const q = normalize(query);
         if (q === '') return [];
         return products
-            .filter((product) => normalize(product.name).includes(q) || normalize(product.code ?? '').includes(q))
+            .filter(
+                (product) =>
+                    normalize(product.name).includes(q) ||
+                    normalize(product.code ?? '').includes(q) ||
+                    normalize(product.companyName).includes(q),
+            )
             .slice(0, MAX_CANDIDATES);
     }, [products, query]);
 
@@ -238,7 +246,10 @@ function ProductPicker({ products, value, onChange, error }: {
             <p className="mb-1 text-gray-900">
                 {selected ? (
                     <>
-                        {selected.code && <span className="mr-1 text-gray-500">{selected.code}</span>}
+                        <span className="mr-1 text-gray-500">
+                            {selected.companyName}
+                            {selected.code && `・${selected.code}`}
+                        </span>
                         {selected.name}
                     </>
                 ) : (
@@ -249,7 +260,7 @@ function ProductPicker({ products, value, onChange, error }: {
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="品番・品名の一部で探す"
+                placeholder="取引会社・品番・品名の一部で探す"
                 aria-label="製品を探す"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2.5"
             />
@@ -268,7 +279,10 @@ function ProductPicker({ products, value, onChange, error }: {
                                     }}
                                     className={`w-full px-3 py-2.5 text-left hover:bg-blue-50 ${product.id === value ? 'bg-blue-50 font-semibold' : ''}`}
                                 >
-                                    {product.code && <span className="mr-2 text-gray-500">{product.code}</span>}
+                                    <span className="mr-2 text-gray-500">
+                                        {product.companyName}
+                                        {product.code && `・${product.code}`}
+                                    </span>
                                     {product.name}
                                 </button>
                             </li>

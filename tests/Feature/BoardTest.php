@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\OrderStatus;
+use App\Models\Company;
 use App\Models\Product;
 use App\Models\ProductionOrder;
 use App\Models\User;
@@ -63,7 +64,8 @@ class BoardTest extends TestCase
     public function test_each_order_shows_product_quantity_dates_assignees_and_status(): void
     {
         $this->travelTo(now()->setDate(2026, 11, 20));
-        $product = Product::factory()->create(['code' => 'SH-0660', 'name' => 'シャフト']);
+        $company = Company::factory()->create(['name' => 'ダミー東和工業']);
+        $product = Product::factory()->create(['company_id' => $company->id, 'code' => 'SH-0660', 'name' => 'シャフト']);
         $order = ProductionOrder::factory()->status(OrderStatus::InProgress)->create([
             'product_id' => $product->id,
             'quantity' => 120,
@@ -77,6 +79,7 @@ class BoardTest extends TestCase
             ->has('columns.1.orders.0', fn (Assert $card) => $card
                 ->where('id', $order->id)
                 ->where('productId', $product->id)
+                ->where('companyName', 'ダミー東和工業')
                 ->where('productCode', 'SH-0660')
                 ->where('productName', 'シャフト')
                 ->where('quantity', 120)
@@ -182,15 +185,17 @@ class BoardTest extends TestCase
      */
     public function test_board_passes_products_for_the_picker(): void
     {
-        $b = Product::factory()->create(['code' => 'BB-0002', 'name' => 'フランジ']);
-        $none = Product::factory()->withoutCode()->create(['name' => 'ステー']);
-        $a = Product::factory()->create(['code' => 'AA-0001', 'name' => 'シャフト']);
+        $company = Company::factory()->create(['name' => 'ダミー東和工業']);
+        $c = ['company_id' => $company->id];
+        $b = Product::factory()->create([...$c, 'code' => 'BB-0002', 'name' => 'フランジ']);
+        $none = Product::factory()->withoutCode()->create([...$c, 'name' => 'ステー']);
+        $a = Product::factory()->create([...$c, 'code' => 'AA-0001', 'name' => 'シャフト']);
 
         $this->get('/')->assertInertia(fn (Assert $page) => $page
             ->has('products', 3)
-            ->where('products.0', ['id' => $a->id, 'code' => 'AA-0001', 'name' => 'シャフト'])
-            ->where('products.1', ['id' => $b->id, 'code' => 'BB-0002', 'name' => 'フランジ'])
-            ->where('products.2', ['id' => $none->id, 'code' => null, 'name' => 'ステー'])
+            ->where('products.0', ['id' => $a->id, 'companyName' => 'ダミー東和工業', 'code' => 'AA-0001', 'name' => 'シャフト'])
+            ->where('products.1', ['id' => $b->id, 'companyName' => 'ダミー東和工業', 'code' => 'BB-0002', 'name' => 'フランジ'])
+            ->where('products.2', ['id' => $none->id, 'companyName' => 'ダミー東和工業', 'code' => null, 'name' => 'ステー'])
         );
     }
 

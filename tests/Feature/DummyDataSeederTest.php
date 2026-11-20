@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\OrderStatus;
 use App\Enums\UserRole;
+use App\Models\Company;
 use App\Models\Product;
 use App\Models\ProductionOrder;
 use App\Models\User;
@@ -29,6 +30,9 @@ class DummyDataSeederTest extends TestCase
 
         $this->assertSame(0, User::where('is_dummy', false)->count());
         $this->assertSame(0, Product::where('is_dummy', false)->count());
+        $this->assertSame(0, Company::where('is_dummy', false)->count());
+        // 取引会社の名前には、かならず「ダミー」が付いている
+        $this->assertSame(0, Company::where('name', 'not like', 'ダミー%')->count());
         $this->assertSame(0, ProductionOrder::where('is_dummy', false)->count());
     }
 

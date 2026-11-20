@@ -8,9 +8,21 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // 取引会社（R-14・D-033）。登録するのは会社名だけ
+        Schema::create('companies', function (Blueprint $table) {
+            $table->id();
+            // 同じ会社名は二重に登録できない
+            $table->string('name')->unique();
+            // ダミーデータの印
+            $table->boolean('is_dummy')->default(false);
+            $table->timestamps();
+        });
+
         // 製品の一覧（D-019）
         Schema::create('products', function (Blueprint $table) {
             $table->id();
+            // 製品は必ずどこか1社の取引会社のもの。製品が登録されている会社は消せない（D-033）
+            $table->foreignId('company_id')->constrained()->restrictOnDelete();
             // 品番は空でもよい。入れたときは二重に登録できない（空どうしは重なってもよい）
             $table->string('code')->nullable()->unique();
             $table->string('name');
@@ -62,5 +74,6 @@ return new class extends Migration
         Schema::dropIfExists('order_assignees');
         Schema::dropIfExists('production_orders');
         Schema::dropIfExists('products');
+        Schema::dropIfExists('companies');
     }
 };

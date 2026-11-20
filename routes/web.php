@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\LoginController;
+use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\OrderAssigneeController;
 use App\Http\Controllers\OrderController;
@@ -33,5 +35,17 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     Route::middleware(EnsureAdminSession::class)->group(function () {
         Route::get('/', fn () => Inertia::render('admin/Home'))->name('home');
+
+        // 取引会社（R-14）
+        Route::get('/companies', [CompanyController::class, 'index'])->name('companies.index');
+        Route::post('/companies', [CompanyController::class, 'store'])->name('companies.store');
+        Route::patch('/companies/{company}', [CompanyController::class, 'update'])->name('companies.update');
+        Route::delete('/companies/{company}', [CompanyController::class, 'destroy'])->name('companies.destroy');
+
+        // 製品の一覧と検索（R-12）
+        Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+        Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+        Route::patch('/products/{product}', [ProductController::class, 'update'])->name('products.update');
+        Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
     });
 });

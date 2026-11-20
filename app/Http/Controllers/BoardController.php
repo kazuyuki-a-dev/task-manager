@@ -26,7 +26,7 @@ class BoardController extends Controller
     {
         // 納期の近い順。製品と担当はまとめて読む（指示が増えても問い合わせの回数を増やさない）
         $orders = ProductionOrder::query()
-            ->with(['product:id,code,name', 'assignees:id,name'])
+            ->with(['product:id,company_id,code,name', 'product.company:id,name', 'assignees:id,name'])
             ->whereIn('status', self::STATUSES)
             ->orderBy('due_date')
             ->orderBy('id')
@@ -60,11 +60,17 @@ class BoardController extends Controller
                 ->all(),
             // 小さな画面で製品を選ぶための一覧。品番か品名の一部で、画面の中で探す（R-12）
             'products' => Product::query()
+                ->with('company:id,name')
                 ->orderByRaw('code IS NULL')
                 ->orderBy('code')
                 ->orderBy('name')
-                ->get(['id', 'code', 'name'])
-                ->map(fn (Product $product) => ['id' => $product->id, 'code' => $product->code, 'name' => $product->name])
+                ->get(['id', 'company_id', 'code', 'name'])
+                ->map(fn (Product $product) => [
+                    'id' => $product->id,
+                    'companyName' => $product->company->name,
+                    'code' => $product->code,
+                    'name' => $product->name,
+                ])
                 ->all(),
         ]);
     }
@@ -83,6 +89,7 @@ class BoardController extends Controller
             return [
                 'id' => $order->id,
                 'productId' => $order->product_id,
+                'companyName' => $order->product->company->name,
                 'productCode' => $order->product->code,
                 'productName' => $order->product->name,
                 'quantity' => $order->quantity,

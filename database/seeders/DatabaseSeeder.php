@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\OrderStatus;
+use App\Models\Company;
 use App\Models\Product;
 use App\Models\ProductionOrder;
 use App\Models\User;
@@ -23,9 +24,15 @@ class DatabaseSeeder extends Seeder
         User::factory()->admin()->dummy()->create(['name' => 'ダミー管理者']);
         $workers = User::factory()->count(19)->dummy()->create();
 
-        // 製品15件。品番のないものも混ぜる（D-019）
-        $products = Product::factory()->count(12)->dummy()->create()
-            ->merge(Product::factory()->count(3)->withoutCode()->dummy()->create());
+        // 取引会社4社。本物の会社名は使わず、かならず「ダミー」を付ける（D-033）
+        $companies = collect(['ダミー東和工業', 'ダミー北陸製作所', 'ダミー南海精工', 'ダミー中央機械'])
+            ->map(fn (string $name) => Company::factory()->dummy()->create(['name' => $name]));
+
+        // 製品15件。どれもどこか1社の製品。品番のないものも混ぜる（D-019）
+        $products = Product::factory()->count(12)->dummy()
+            ->state(fn () => ['company_id' => $companies->random()->id])->create()
+            ->merge(Product::factory()->count(3)->withoutCode()->dummy()
+                ->state(fn () => ['company_id' => $companies->random()->id])->create());
 
         $counts = [
             OrderStatus::NotStarted->value => 25,
