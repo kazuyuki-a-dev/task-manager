@@ -7,3 +7,11 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+/*
+ * 現場の共用タブレットで、少し離れても読めるように、文字の基準を 16px から 18px にする。
+ * 画面の文字や余白は、この基準をもとにした大きさ（rem）で書いてあるので、全体が同じ割合で大きくなる
+ */
+html {
+    font-size: 112.5%;
+}

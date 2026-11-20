@@ -53,7 +53,7 @@ function DeadlineBadge({ order }: { order: Order }) {
     if (!order.deadline) return null;
     const style = DEADLINE_STYLES[order.deadline];
     return (
-        <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${style.badge}`}>
+        <span className={`rounded-md px-2.5 py-1 text-base font-bold whitespace-nowrap ${style.badge}`}>
             {style.label}・{deadlineText(order.daysLeft)}
         </span>
     );
