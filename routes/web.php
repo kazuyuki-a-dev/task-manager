@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\LoginController;
+use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\BoardController;
 use App\Http\Controllers\OrderAssigneeController;
 use App\Http\Controllers\OrderController;
@@ -33,5 +34,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     Route::middleware(EnsureAdminSession::class)->group(function () {
         Route::get('/', fn () => Inertia::render('admin/Home'))->name('home');
+
+        // 製品の一覧と検索（R-12）
+        Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+        Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+        Route::patch('/products/{product}', [ProductController::class, 'update'])->name('products.update');
+        Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
     });
 });

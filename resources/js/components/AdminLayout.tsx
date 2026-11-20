@@ -3,7 +3,7 @@ import type { SharedProps } from '../types';
 
 /** 管理者の画面の共通の枠。だれが入っているかと、「管理者の操作を終える」ボタンを出す */
 export default function AdminLayout({ title, children }: { title: string; children: React.ReactNode }) {
-    const { admin } = usePage<SharedProps>().props;
+    const { admin, notice } = usePage<SharedProps>().props;
 
     return (
         <>
@@ -27,7 +27,14 @@ export default function AdminLayout({ title, children }: { title: string; childr
                         </button>
                     </div>
                 </header>
-                <main className="mx-auto max-w-3xl p-4">{children}</main>
+                <main className="mx-auto max-w-3xl p-4">
+                    {notice && (
+                        <p role="status" className="mb-4 rounded-lg border border-green-300 bg-green-50 px-4 py-3 font-medium text-green-900">
+                            {notice}
+                        </p>
+                    )}
+                    {children}
+                </main>
             </div>
         </>
     );
