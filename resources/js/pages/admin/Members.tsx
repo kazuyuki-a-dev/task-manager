@@ -138,10 +138,8 @@ function MemberModal({ member, onClose }: { member: MemberRow; onClose: () => vo
         form.transform((data) => ({ ...data, password: data.role === 'admin' && data.password !== '' ? data.password : null }));
         form.patch(`/admin/members/${member.id}`, {
             preserveScroll: true,
-            onSuccess: () => {
-                form.setDefaults({ name: form.data.name, role: form.data.role, password: '' });
-                form.reset('password');
-            },
+            // 保存できたら閉じる。保存できなかったときは、理由が見えるように閉じない
+            onSuccess: () => onClose(),
         });
     };
 
@@ -184,7 +182,6 @@ function MemberModal({ member, onClose }: { member: MemberRow; onClose: () => vo
                     </label>
                 )}
                 <div className="flex items-center justify-end gap-3">
-                    {form.recentlySuccessful && <span className="text-sm font-medium text-green-700">保存しました</span>}
                     <button type="submit" disabled={form.processing || !form.isDirty} className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
                         保存
                     </button>
