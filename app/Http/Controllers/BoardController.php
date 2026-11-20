@@ -50,6 +50,13 @@ class BoardController extends Controller
             'columns' => $columns,
             'alerts' => array_values($alerts),
             'today' => today()->toDateString(),
+            // 担当を足すプルダウンに出す社員。使えなくした人は出さない（R-11）
+            'members' => User::query()
+                ->where('is_active', true)
+                ->orderBy('id')
+                ->get(['id', 'name'])
+                ->map(fn (User $user) => ['id' => $user->id, 'name' => $user->name])
+                ->all(),
         ]);
     }
 
@@ -73,7 +80,7 @@ class BoardController extends Controller
                 'dueDate' => $order->due_date->toDateString(),
                 'daysLeft' => $daysLeft,
                 'deadline' => Deadline::fromDaysLeft($daysLeft)?->value,
-                'assignees' => $order->assignees->map(fn (User $user) => $user->name)->all(),
+                'assignees' => $order->assignees->map(fn (User $user) => ['id' => $user->id, 'name' => $user->name])->all(),
                 'status' => $order->status->value,
                 'isDummy' => $order->is_dummy,
             ];

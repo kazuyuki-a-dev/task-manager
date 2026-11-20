@@ -19,10 +19,16 @@ export type Order = {
     daysLeft: number;
     /** 遅れ・期限間近のどちらでもなければ null */
     deadline: Deadline | null;
-    /** 担当の名前（足した順）。まだだれもいなければ空 */
-    assignees: string[];
+    /** 担当（足した順）。まだだれもいなければ空 */
+    assignees: Member[];
     status: OrderStatus;
     isDummy: boolean;
+};
+
+/** 社員 */
+export type Member = {
+    id: number;
+    name: string;
 };
 
 export type BoardColumn = {

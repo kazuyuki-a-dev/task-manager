@@ -1,6 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
-import type { BoardColumn, Deadline, Order, OrderStatus } from '../types';
+import type { BoardColumn, Deadline, Member, Order, OrderStatus } from '../types';
 
 type Props = {
     columns: BoardColumn[];
@@ -8,8 +8,10 @@ type Props = {
     alerts: Order[];
     /** 'YYYY-MM-DD'。サーバーの「今日」 */
     today: string;
-    /** 状態を変えられなかったときの理由（ほかの端末で先に変わっていたときなど） */
-    errors: { status?: string };
+    /** 担当を足すプルダウンに出す社員（使えなくした人は入っていない） */
+    members: Member[];
+    /** 変えられなかったときの理由（ほかの端末で先に変わっていたときなど） */
+    errors: { status?: string; user_id?: string };
 };
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
@@ -120,7 +122,66 @@ function StatusButtons({ order }: { order: Order }) {
     );
 }
 
-function OrderCard({ order }: { order: Order }) {
+/** 担当の一覧と、外すボタン・足すプルダウン（R-11） */
+function Assignees({ order, members }: { order: Order; members: Member[] }) {
+    const [processing, setProcessing] = useState(false);
+    const options = { preserveScroll: true, onStart: () => setProcessing(true), onFinish: () => setProcessing(false) };
+
+    // もう担当に入っている人は、プルダウンに出さない
+    const assignedIds = new Set(order.assignees.map((member) => member.id));
+    const candidates = members.filter((member) => !assignedIds.has(member.id));
+
+    const add = (userId: string) => {
+        if (userId === '') return;
+        router.post(`/orders/${order.id}/assignees`, { user_id: Number(userId) }, options);
+    };
+    const remove = (member: Member) => {
+        router.delete(`/orders/${order.id}/assignees/${member.id}`, options);
+    };
+
+    return (
+        <div className="space-y-2">
+            {order.assignees.length === 0 ? (
+                <p className="text-red-700">未割り当て</p>
+            ) : (
+                <ul className="flex flex-wrap gap-1.5">
+                    {order.assignees.map((member) => (
+                        <li key={member.id} className="flex items-center rounded-full bg-gray-100 pl-3 text-gray-900">
+                            {member.name}
+                            <button
+                                type="button"
+                                onClick={() => remove(member)}
+                                disabled={processing}
+                                aria-label={`${member.name}さんを担当から外す`}
+                                className="ml-1 flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-900 disabled:opacity-50"
+                            >
+                                ×
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+            {candidates.length > 0 && (
+                <select
+                    aria-label="担当を足す"
+                    value=""
+                    onChange={(event) => add(event.target.value)}
+                    disabled={processing}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-gray-700 disabled:opacity-50"
+                >
+                    <option value="">＋ 担当を足す</option>
+                    {candidates.map((member) => (
+                        <option key={member.id} value={member.id}>
+                            {member.name}
+                        </option>
+                    ))}
+                </select>
+            )}
+        </div>
+    );
+}
+
+function OrderCard({ order, members }: { order: Order; members: Member[] }) {
     const highlight = order.deadline ? DEADLINE_STYLES[order.deadline].card : '';
     return (
         <li className={`rounded-lg border border-gray-200 bg-white p-3 shadow-sm ${highlight}`}>
@@ -144,9 +205,9 @@ function OrderCard({ order }: { order: Order }) {
                 </dd>
                 <dt className="text-gray-500">納期</dt>
                 <dd className="font-medium text-gray-900">{formatDate(order.dueDate)}</dd>
-                <dt className="text-gray-500">担当</dt>
-                <dd className={order.assignees.length > 0 ? 'text-gray-900' : 'text-red-700'}>
-                    {order.assignees.length > 0 ? order.assignees.join('、') : '未割り当て'}
+                <dt className="pt-1 text-gray-500">担当</dt>
+                <dd>
+                    <Assignees order={order} members={members} />
                 </dd>
             </dl>
             <StatusButtons order={order} />
@@ -190,7 +251,7 @@ function AlertSummary({ alerts }: { alerts: Order[] }) {
                         <span className="text-gray-700">納期 {formatDate(order.dueDate)}</span>
                         <span className="text-gray-700">{STATUS_LABELS[order.status]}</span>
                         <span className={order.assignees.length > 0 ? 'text-gray-700' : 'text-red-700'}>
-                            {order.assignees.length > 0 ? order.assignees.join('、') : '未割り当て'}
+                            {order.assignees.length > 0 ? order.assignees.map((member) => member.name).join('、') : '未割り当て'}
                         </span>
                     </li>
                 ))}
@@ -199,7 +260,7 @@ function AlertSummary({ alerts }: { alerts: Order[] }) {
     );
 }
 
-export default function Board({ columns, alerts, today, errors }: Props) {
+export default function Board({ columns, alerts, today, members, errors }: Props) {
     return (
         <>
             <Head title="進み具合のボード" />
@@ -218,9 +279,9 @@ export default function Board({ columns, alerts, today, errors }: Props) {
                     </Link>
                 </header>
 
-                {errors.status && (
+                {(errors.status || errors.user_id) && (
                     <p role="alert" className="mx-4 mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 font-medium text-red-800">
-                        {errors.status}
+                        {errors.status ?? errors.user_id}
                     </p>
                 )}
 
@@ -242,7 +303,7 @@ export default function Board({ columns, alerts, today, errors }: Props) {
                             ) : (
                                 <ul className="space-y-2">
                                     {column.orders.map((order) => (
-                                        <OrderCard key={order.id} order={order} />
+                                        <OrderCard key={order.id} order={order} members={members} />
                                     ))}
                                 </ul>
                             )}

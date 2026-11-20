@@ -70,7 +70,8 @@ class BoardTest extends TestCase
             'material_ready_date' => '2026-11-18',
             'due_date' => '2026-11-22',
         ]);
-        $order->assignees()->attach(User::factory()->create(['name' => '山田 太郎']));
+        $yamada = User::factory()->create(['name' => '山田 太郎']);
+        $order->assignees()->attach($yamada);
 
         $this->get('/')->assertInertia(fn (Assert $page) => $page
             ->has('columns.1.orders.0', fn (Assert $card) => $card
@@ -82,7 +83,7 @@ class BoardTest extends TestCase
                 ->where('dueDate', '2026-11-22')
                 ->where('daysLeft', 2)
                 ->where('deadline', 'soon')
-                ->where('assignees', ['山田 太郎'])
+                ->where('assignees', [['id' => $yamada->id, 'name' => '山田 太郎']])
                 ->where('status', 'in_progress')
                 ->where('isDummy', false)
             )
@@ -103,7 +104,9 @@ class BoardTest extends TestCase
         $order->assignees()->attach($third);
 
         $this->get('/')->assertInertia(fn (Assert $page) => $page
-            ->where('columns.0.orders.0.assignees', ['渡辺 一郎', '青木 花子', '佐藤 次郎'])
+            ->where('columns.0.orders.0.assignees.0.name', '渡辺 一郎')
+            ->where('columns.0.orders.0.assignees.1.name', '青木 花子')
+            ->where('columns.0.orders.0.assignees.2.name', '佐藤 次郎')
         );
     }
 
