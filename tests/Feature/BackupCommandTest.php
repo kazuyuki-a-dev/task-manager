@@ -6,6 +6,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -119,8 +120,62 @@ class BackupCommandTest extends TestCase
         Artisan::call('schedule:list');
         $output = Artisan::output();
 
-        // 毎日 12:30（cron の書き方で「30 12 * * *」）に backup:database が入っている（D-045）
-        $this->assertMatchesRegularExpression('/30 12 \* \* \*\s+php artisan backup:database/', $output);
+        // 5分ごと（cron の書き方で「*/5 * * * *」）に、とれていなければとる形で入っている（D-047）
+        $this->assertMatchesRegularExpression('/\*\/5 \* \* \* \*\s+php artisan backup:database --if-due/', $output);
+    }
+
+    /**
+     * --if-due：いちばん近い、すぎた 12:30 より後のバックアップがなければとる。あればとらない（D-047）
+     *
+     * @return array<string, array{string, list<string>, bool}>
+     */
+    public static function dueCases(): array
+    {
+        return [
+            // 今の時刻, もうあるバックアップ, とるか
+            '12:30 ちょうど・今日の分がない' => ['2026-11-20 12:30:00', ['task-manager-20261119-123000.sql.gz'], true],
+            '14:00 に PC を立ち上げた・今日の分がない' => ['2026-11-20 14:00:00', ['task-manager-20261119-123000.sql.gz'], true],
+            '14:00・今日の 12:30 にとれている' => ['2026-11-20 14:00:00', ['task-manager-20261120-123000.sql.gz'], false],
+            '14:00・今日 12:40 に手でとった' => ['2026-11-20 14:00:00', ['task-manager-20261120-124000.sql.gz'], false],
+            '14:00・今日の朝 9:00 に手でとっただけ' => ['2026-11-20 14:00:00', ['task-manager-20261120-090000.sql.gz'], true],
+            '朝 9:00・きのうの 12:30 にとれている' => ['2026-11-20 09:00:00', ['task-manager-20261119-123000.sql.gz'], false],
+            '朝 9:00・きのうは一日止まっていた' => ['2026-11-20 09:00:00', ['task-manager-20261118-123000.sql.gz'], true],
+            '1つもない' => ['2026-11-20 09:00:00', [], true],
+        ];
+    }
+
+    /**
+     * @param  list<string>  $existing
+     */
+    #[DataProvider('dueCases')]
+    public function test_if_due_backs_up_only_when_the_last_due_time_is_missed(string $now, array $existing, bool $shouldBackUp): void
+    {
+        config(['backup.time' => '12:30']);
+        File::ensureDirectoryExists($this->dir);
+        foreach ($existing as $name) {
+            File::put($this->dir.'/'.$name, 'x');
+        }
+        $this->travelTo(Carbon::parse($now));
+
+        $this->artisan('backup:database', ['--if-due' => true])->assertSuccessful();
+
+        $new = 'task-manager-'.Carbon::parse($now)->format('Ymd-His').'.sql.gz';
+        $this->assertSame($shouldBackUp, in_array($new, $this->backups(), true));
+        $this->assertCount(count($existing) + ($shouldBackUp ? 1 : 0), $this->backups());
+    }
+
+    /**
+     * --if-due なしのときは、いつでもとる（手でとるとき）
+     */
+    public function test_without_if_due_it_always_backs_up(): void
+    {
+        File::ensureDirectoryExists($this->dir);
+        File::put($this->dir.'/task-manager-20261120-123000.sql.gz', 'x');
+        $this->travelTo(Carbon::parse('2026-11-20 14:00:00'));
+
+        $this->artisan('backup:database')->assertSuccessful();
+
+        $this->assertContains('task-manager-20261120-140000.sql.gz', $this->backups());
     }
 
     public function test_restore_stops_when_the_file_is_missing(): void

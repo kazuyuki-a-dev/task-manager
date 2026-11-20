@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\CalendarController as AdminCalendarController;
 use App\Http\Controllers\Admin\CompanyController;
+use App\Http\Controllers\Admin\HomeController;
 use App\Http\Controllers\Admin\LoginController;
 use App\Http\Controllers\Admin\MemberController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
@@ -14,7 +15,6 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderStatusController;
 use App\Http\Middleware\EnsureAdminSession;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 // トップは進み具合のボード（R-01）
 Route::get('/', BoardController::class)->name('board');
@@ -42,7 +42,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
     Route::middleware(EnsureAdminSession::class)->group(function () {
-        Route::get('/', fn () => Inertia::render('admin/Home'))->name('home');
+        Route::get('/', HomeController::class)->name('home');
 
         // 会社カレンダーに休みと行事を足す・取り消す（R-13）。カレンダーの日付の小さな画面から使う
         Route::put('/company-holidays', [AdminCalendarController::class, 'setHoliday'])->name('company-holidays.set');

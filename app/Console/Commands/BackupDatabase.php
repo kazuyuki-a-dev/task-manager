@@ -2,30 +2,40 @@
 
 namespace App\Console\Commands;
 
+use App\Support\BackupFiles;
+use Carbon\CarbonInterface;
 use Illuminate\Console\Command;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 
 /**
- * データベースのバックアップをとる（R-09・D-044）。
- * 書き出して gzip で小さくし、残す日数より古いバックアップを消す
+ * データベースのバックアップをとる（R-09・D-044・D-047）。
+ * 書き出して gzip で小さくし、残す日数より古いバックアップを消す。
+ * --if-due を付けると、いちばん近い、すぎたバックアップの時刻（初期値 12:30）より後のバックアップがないときだけとる。
+ * 12:30 に PC が止まっていても、PC が動き出してから、とれていなかった分をとるため
  */
 class BackupDatabase extends Command
 {
-    protected $signature = 'backup:database';
+    protected $signature = 'backup:database
+        {--if-due : いちばん近い、すぎたバックアップの時刻より後のバックアップがないときだけとる}';
 
     protected $description = 'データベースのバックアップをとり、古いものを消す';
-
-    /**
-     * バックアップのファイルの名前の形。この形のものだけを、古くなったら消す
-     */
-    public const FILE_PATTERN = '/^task-manager-(\d{8}-\d{6})\.sql\.gz$/';
 
     public function handle(): int
     {
         $dir = config('backup.path');
+
+        if ($this->option('if-due')) {
+            $due = self::lastDueTime(now(), config('backup.time'));
+            $latest = BackupFiles::latest($dir);
+            if ($latest !== null && $latest['takenAt']->gte($due)) {
+                $this->info("もうとれています（{$due->format('m/d H:i')} より後のバックアップ：{$latest['fileName']}）");
+
+                return self::SUCCESS;
+            }
+        }
+
         File::ensureDirectoryExists($dir);
 
         $file = $dir.'/task-manager-'.now()->format('Ymd-His').'.sql.gz';
@@ -61,7 +71,18 @@ class BackupDatabase extends Command
     }
 
     /**
-     * 残す日数より古いバックアップを消す。日時はファイルの名前から読む。
+     * いちばん近い、すぎたバックアップの時刻。今が今日の時刻（例：12:30）より前なら、きのうのその時刻
+     */
+    public static function lastDueTime(CarbonInterface $now, string $time): CarbonInterface
+    {
+        [$hour, $minute] = array_map('intval', explode(':', $time));
+        $today = $now->copy()->setTime($hour, $minute);
+
+        return $now->lt($today) ? $today->subDay() : $today;
+    }
+
+    /**
+     * 残す日数より古いバックアップを消す。日時はファイルの名前から読む（BackupFiles）。
      * バックアップの名前の形でないファイルは、さわらない
      */
     private function deleteOldBackups(string $dir): int
@@ -69,12 +90,9 @@ class BackupDatabase extends Command
         $limit = now()->subDays(config('backup.keep_days'));
         $deleted = 0;
 
-        foreach (File::files($dir) as $file) {
-            if (preg_match(self::FILE_PATTERN, $file->getFilename(), $match) !== 1) {
-                continue;
-            }
-            if (Carbon::createFromFormat('Ymd-His', $match[1])->lt($limit)) {
-                File::delete($file->getPathname());
+        foreach (BackupFiles::all($dir) as $backup) {
+            if ($backup['takenAt']->lt($limit)) {
+                File::delete($backup['path']);
                 $deleted++;
             }
         }
