@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Support\BackupFiles;
 use Illuminate\Console\Command;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
@@ -17,11 +17,6 @@ class BackupDatabase extends Command
     protected $signature = 'backup:database';
 
     protected $description = 'データベースのバックアップをとり、古いものを消す';
-
-    /**
-     * バックアップのファイルの名前の形。この形のものだけを、古くなったら消す
-     */
-    public const FILE_PATTERN = '/^task-manager-(\d{8}-\d{6})\.sql\.gz$/';
 
     public function handle(): int
     {
@@ -61,7 +56,7 @@ class BackupDatabase extends Command
     }
 
     /**
-     * 残す日数より古いバックアップを消す。日時はファイルの名前から読む。
+     * 残す日数より古いバックアップを消す。日時はファイルの名前から読む（BackupFiles）。
      * バックアップの名前の形でないファイルは、さわらない
      */
     private function deleteOldBackups(string $dir): int
@@ -69,12 +64,9 @@ class BackupDatabase extends Command
         $limit = now()->subDays(config('backup.keep_days'));
         $deleted = 0;
 
-        foreach (File::files($dir) as $file) {
-            if (preg_match(self::FILE_PATTERN, $file->getFilename(), $match) !== 1) {
-                continue;
-            }
-            if (Carbon::createFromFormat('Ymd-His', $match[1])->lt($limit)) {
-                File::delete($file->getPathname());
+        foreach (BackupFiles::all($dir) as $backup) {
+            if ($backup['takenAt']->lt($limit)) {
+                File::delete($backup['path']);
                 $deleted++;
             }
         }
