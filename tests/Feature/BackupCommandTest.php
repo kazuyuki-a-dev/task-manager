@@ -44,13 +44,13 @@ class BackupCommandTest extends TestCase
      */
     public function test_backup_writes_a_gzipped_dump_into_a_new_folder(): void
     {
-        $this->travelTo(Carbon::parse('2026-11-20 02:00:00'));
+        $this->travelTo(Carbon::parse('2026-11-20 12:30:00'));
         $this->assertDirectoryDoesNotExist($this->dir);
 
         $this->artisan('backup:database')->assertSuccessful();
 
-        $this->assertSame(['task-manager-20261120-020000.sql.gz'], $this->backups());
-        $sql = gzdecode(File::get($this->dir.'/task-manager-20261120-020000.sql.gz'));
+        $this->assertSame(['task-manager-20261120-123000.sql.gz'], $this->backups());
+        $sql = gzdecode(File::get($this->dir.'/task-manager-20261120-123000.sql.gz'));
         foreach (['production_orders', 'products', 'companies', 'users', 'order_assignees', 'order_logs', 'absences', 'calendar_events', 'company_holidays'] as $table) {
             $this->assertStringContainsString("CREATE TABLE `{$table}`", $sql);
         }
@@ -62,12 +62,12 @@ class BackupCommandTest extends TestCase
     public function test_old_backups_are_deleted_and_others_are_kept(): void
     {
         File::ensureDirectoryExists($this->dir);
-        $this->travelTo(Carbon::parse('2026-11-20 02:00:00'));
+        $this->travelTo(Carbon::parse('2026-11-20 12:30:00'));
         foreach ([
             // 11/20 の30日前は 10/21（10月は31日まであるため）
             'task-manager-20261021-015959.sql.gz', // 30日と1秒前 → 消える
-            'task-manager-20261021-020000.sql.gz', // ちょうど30日前 → 残る
-            'task-manager-20261119-020000.sql.gz', // きのう → 残る
+            'task-manager-20261021-123000.sql.gz', // ちょうど30日前 → 残る
+            'task-manager-20261119-123000.sql.gz', // きのう → 残る
             'memo.txt',                            // バックアップでない → さわらない
             'task-manager-old.sql.gz',             // 名前の形がちがう → さわらない
         ] as $name) {
@@ -78,9 +78,9 @@ class BackupCommandTest extends TestCase
 
         $this->assertSame([
             'memo.txt',
-            'task-manager-20261021-020000.sql.gz',
-            'task-manager-20261119-020000.sql.gz',
-            'task-manager-20261120-020000.sql.gz',
+            'task-manager-20261021-123000.sql.gz',
+            'task-manager-20261119-123000.sql.gz',
+            'task-manager-20261120-123000.sql.gz',
             'task-manager-old.sql.gz',
         ], $this->backups());
     }
@@ -89,13 +89,13 @@ class BackupCommandTest extends TestCase
     {
         config(['backup.keep_days' => 7]);
         File::ensureDirectoryExists($this->dir);
-        $this->travelTo(Carbon::parse('2026-11-20 02:00:00'));
-        File::put($this->dir.'/task-manager-20261112-020000.sql.gz', 'x'); // 8日前 → 消える
-        File::put($this->dir.'/task-manager-20261114-020000.sql.gz', 'x'); // 6日前 → 残る
+        $this->travelTo(Carbon::parse('2026-11-20 12:30:00'));
+        File::put($this->dir.'/task-manager-20261112-123000.sql.gz', 'x'); // 8日前 → 消える
+        File::put($this->dir.'/task-manager-20261114-123000.sql.gz', 'x'); // 6日前 → 残る
 
         $this->artisan('backup:database')->assertSuccessful();
 
-        $this->assertSame(['task-manager-20261114-020000.sql.gz', 'task-manager-20261120-020000.sql.gz'], $this->backups());
+        $this->assertSame(['task-manager-20261114-123000.sql.gz', 'task-manager-20261120-123000.sql.gz'], $this->backups());
     }
 
     /**
@@ -104,14 +104,14 @@ class BackupCommandTest extends TestCase
     public function test_failed_backup_leaves_no_broken_file_and_keeps_old_ones(): void
     {
         File::ensureDirectoryExists($this->dir);
-        $this->travelTo(Carbon::parse('2026-11-20 02:00:00'));
-        File::put($this->dir.'/task-manager-20260101-020000.sql.gz', 'x'); // ずっと古い
+        $this->travelTo(Carbon::parse('2026-11-20 12:30:00'));
+        File::put($this->dir.'/task-manager-20260101-123000.sql.gz', 'x'); // ずっと古い
         $connection = config('database.default');
         config(["database.connections.{$connection}.database" => 'no_such_database']);
 
         $this->artisan('backup:database')->assertFailed();
 
-        $this->assertSame(['task-manager-20260101-020000.sql.gz'], $this->backups());
+        $this->assertSame(['task-manager-20260101-123000.sql.gz'], $this->backups());
     }
 
     public function test_backup_is_scheduled_every_day(): void
@@ -119,8 +119,8 @@ class BackupCommandTest extends TestCase
         Artisan::call('schedule:list');
         $output = Artisan::output();
 
-        // 毎日2時（cron の書き方で「0 2 * * *」）に backup:database が入っている
-        $this->assertMatchesRegularExpression('/0 2 \* \* \*\s+php artisan backup:database/', $output);
+        // 毎日 12:30（cron の書き方で「30 12 * * *」）に backup:database が入っている（D-045）
+        $this->assertMatchesRegularExpression('/30 12 \* \* \*\s+php artisan backup:database/', $output);
     }
 
     public function test_restore_stops_when_the_file_is_missing(): void
@@ -133,10 +133,10 @@ class BackupCommandTest extends TestCase
     public function test_restore_asks_before_overwriting_and_can_be_cancelled(): void
     {
         File::ensureDirectoryExists($this->dir);
-        File::put($this->dir.'/task-manager-20261120-020000.sql.gz', gzencode('SELECT 1;'));
+        File::put($this->dir.'/task-manager-20261120-123000.sql.gz', gzencode('SELECT 1;'));
 
-        $this->artisan('backup:restore', ['file' => 'task-manager-20261120-020000.sql.gz'])
-            ->expectsConfirmation($this->dir.'/task-manager-20261120-020000.sql.gz から戻します。今のデータは消えます。よいですか？', 'no')
+        $this->artisan('backup:restore', ['file' => 'task-manager-20261120-123000.sql.gz'])
+            ->expectsConfirmation($this->dir.'/task-manager-20261120-123000.sql.gz から戻します。今のデータは消えます。よいですか？', 'no')
             ->expectsOutput('戻すのをやめました')
             ->assertFailed();
     }

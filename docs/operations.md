@@ -31,14 +31,14 @@
 |---|---|
 | 担当 | 未決（Q-03） |
 | 基準 | 毎日1回、データベースの全部をバックアップする。決めた日数より古いものは消す |
-| 期限 | 毎日 2:00（`.env` の `BACKUP_TIME` で変えられる） |
+| 期限 | 毎日 12:30（`.env` の `BACKUP_TIME` で変えられる）。夜中は PC が止まっているため昼にする（D-045）。書き出しているあいだもボードは止まらないので、使っている時間でもよい |
 | 保存先 | はじめは `storage/app/private/backups`（アプリと同じ機械の中）。**機械がこわれると一緒に消えるので、本番では別の場所（外付けディスクや社内の共有フォルダ）にする**（Q-04） |
 | 残す日数 | 30日（`.env` の `BACKUP_KEEP_DAYS` で変えられる） |
 
 ### しくみ
 
 - `php artisan backup:database` が、データベースを書き出して（`mysqldump`）、gzip で小さくして保存する
-  - ファイル名：`task-manager-年月日-時分秒.sql.gz`（例：`task-manager-20261120-020000.sql.gz`）
+  - ファイル名：`task-manager-年月日-時分秒.sql.gz`（例：`task-manager-20261120-123000.sql.gz`）
   - 書き出しているあいだも、ボードは止めずに使える（`--single-transaction`）
   - 保存したあと、決めた日数より古いバックアップを消す。この名前の形でないファイルはさわらない
   - 失敗したら、こわれたファイルは残さず、古いバックアップも消さず、ログ（`storage/logs`）に残す
@@ -55,8 +55,8 @@
 | 順 | やること | 確かめ方 |
 |---|---|---|
 | 1 | `.env` に保存先と残す日数を書く（例：`BACKUP_PATH=/mnt/backup/task-manager`、`BACKUP_KEEP_DAYS=30`） | `php artisan backup:database` を手で1回動かし、保存先にファイルができる |
-| 2 | 毎分スケジューラーを動かす設定を1つ足す（下の例） | `php artisan schedule:list` で `0 2 * * *  php artisan backup:database` が出る |
-| 3 | 次の日、保存先に新しいバックアップができているか見る | ファイルの名前の日時が、その日の 2:00 ごろ |
+| 2 | 毎分スケジューラーを動かす設定を1つ足す（下の例） | `php artisan schedule:list` で `30 12 * * *  php artisan backup:database` が出る |
+| 3 | 次の日、保存先に新しいバックアップができているか見る | ファイルの名前の日時が、その日の 12:30 ごろ |
 | 4 | 下の 4. の手順で、本番の機械でも戻す試しを1回やる | 戻す試しの記録（5.）に1行足す |
 
 毎分スケジューラーを動かす設定の例：
@@ -79,7 +79,7 @@
 
 1. いつのバックアップに戻すかを決める（保存先のファイルの名前の日時を見る）
 2. **念のため、今の形もバックアップしておく**：`./vendor/bin/sail artisan backup:database`
-3. 戻す：`./vendor/bin/sail artisan backup:restore task-manager-20261120-020000.sql.gz`
+3. 戻す：`./vendor/bin/sail artisan backup:restore task-manager-20261120-123000.sql.gz`
    - 「今のデータは消えます。よいですか？」と聞かれるので、`yes` と答える
 4. ボードを開いて、指示が出ているかを見る
 5. 使う人に、戻した日時と、消えた変更があることを知らせる
