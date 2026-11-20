@@ -1,5 +1,6 @@
-import { Head, Link } from '@inertiajs/react';
-import type { BoardColumn, Deadline, Order } from '../types';
+import { Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
+import type { BoardColumn, Deadline, Order, OrderStatus } from '../types';
 
 type Props = {
     columns: BoardColumn[];
@@ -7,6 +8,8 @@ type Props = {
     alerts: Order[];
     /** 'YYYY-MM-DD'。サーバーの「今日」 */
     today: string;
+    /** 状態を変えられなかったときの理由（ほかの端末で先に変わっていたときなど） */
+    errors: { status?: string };
 };
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
@@ -68,6 +71,45 @@ function ProductName({ order }: { order: Order }) {
     );
 }
 
+// カードに出すボタン。完了 → 作業中に戻すボタンは、完了した指示が出る履歴の画面に置く（D-024）
+const NEXT_ACTIONS: Partial<Record<OrderStatus, { next: OrderStatus; label: string; style: string }>> = {
+    not_started: { next: 'in_progress', label: '作業を始める', style: 'bg-blue-600 hover:bg-blue-700' },
+    in_progress: { next: 'done', label: '完了にする', style: 'bg-green-700 hover:bg-green-800' },
+};
+
+function StatusButton({ order }: { order: Order }) {
+    const [processing, setProcessing] = useState(false);
+    const action = NEXT_ACTIONS[order.status];
+    if (!action) return null;
+
+    const change = () => {
+        router.patch(
+            `/orders/${order.id}/status`,
+            { status: action.next },
+            {
+                // 押したあとも、画面の同じ位置のままにする
+                preserveScroll: true,
+                onStart: () => setProcessing(true),
+                onFinish: () => setProcessing(false),
+            },
+        );
+    };
+
+    // カードの右下に置く。指で押しやすい高さ（約44px）は残す
+    return (
+        <div className="mt-2 flex justify-end">
+            <button
+                type="button"
+                onClick={change}
+                disabled={processing}
+                className={`rounded-lg px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50 ${action.style}`}
+            >
+                {processing ? '変えています…' : action.label}
+            </button>
+        </div>
+    );
+}
+
 function OrderCard({ order }: { order: Order }) {
     const highlight = order.deadline ? DEADLINE_STYLES[order.deadline].card : '';
     return (
@@ -97,6 +139,7 @@ function OrderCard({ order }: { order: Order }) {
                     {order.assignees.length > 0 ? order.assignees.join('、') : '未割り当て'}
                 </dd>
             </dl>
+            <StatusButton order={order} />
         </li>
     );
 }
@@ -146,7 +189,7 @@ function AlertSummary({ alerts }: { alerts: Order[] }) {
     );
 }
 
-export default function Board({ columns, alerts, today }: Props) {
+export default function Board({ columns, alerts, today, errors }: Props) {
     return (
         <>
             <Head title="進み具合のボード" />
@@ -164,6 +207,12 @@ export default function Board({ columns, alerts, today }: Props) {
                         完了の履歴
                     </Link>
                 </header>
+
+                {errors.status && (
+                    <p role="alert" className="mx-4 mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 font-medium text-red-800">
+                        {errors.status}
+                    </p>
+                )}
 
                 <AlertSummary alerts={alerts} />
 
