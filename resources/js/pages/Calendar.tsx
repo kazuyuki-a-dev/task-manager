@@ -103,32 +103,50 @@ export default function Calendar({ month, prevMonth, nextMonth, today, days, mem
     );
 }
 
-/** 日付のマス。休みのメンバーの名前と、行事のタイトルだけを出す */
+/** マスに出す項目（行事と休みのメンバー）の数の上限。それより多いときは「ほか○件」と数だけ出す */
+const MAX_CELL_ITEMS = 4;
+
+/**
+ * 日付のマス。休みのメンバーの名前と、行事のタイトルだけを出す。
+ * 休みの人が多い日でも行の高さが変わらないように、マスの高さは決めておき（8rem）、
+ * 出すのは4つまで（行事が先）。それより多いときは数だけ出し、全部は押して開く小さな画面で見る
+ */
 function DayCell({ day, isToday, weekday, onOpen }: { day: Day; isToday: boolean; weekday: number; onOpen: () => void }) {
     const dayNumber = Number(day.date.slice(8, 10));
     const numberColor = !day.inMonth ? 'text-gray-400' : weekday === 0 ? 'text-red-700' : weekday === 6 ? 'text-blue-700' : 'text-gray-900';
+
+    const items = [
+        ...day.events.map((event) => ({ key: `e${event.id}`, kind: 'event' as const, label: `■ ${event.title}` })),
+        ...day.absences.map((absence) => ({ key: `a${absence.id}`, kind: 'absence' as const, label: absence.name })),
+    ];
+    const shown = items.slice(0, MAX_CELL_ITEMS);
+    const hidden = items.slice(MAX_CELL_ITEMS);
+    // 隠れたものが休みの人だけなら「ほか○人」、行事もまじるなら「ほか○件」
+    const hiddenLabel = hidden.every((item) => item.kind === 'absence') ? `ほか${hidden.length}人` : `ほか${hidden.length}件`;
 
     return (
         <button
             type="button"
             onClick={onOpen}
             aria-label={`${formatDate(day.date)}を開く`}
-            className={`min-h-24 border-b border-r border-gray-100 p-1 text-left align-top hover:bg-blue-50 ${day.inMonth ? '' : 'bg-gray-50'}`}
+            className={`h-32 overflow-hidden border-b border-r border-gray-100 p-1 text-left align-top hover:bg-blue-50 ${day.inMonth ? '' : 'bg-gray-50'}`}
         >
             <span className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full text-sm font-semibold ${numberColor} ${isToday ? 'bg-gray-900 text-white' : ''}`}>
                 {dayNumber}
             </span>
             <span className="mt-0.5 block space-y-0.5">
-                {day.events.map((event) => (
-                    <span key={event.id} className="block truncate rounded bg-blue-100 px-1 text-xs font-medium text-blue-900">
-                        ■ {event.title}
-                    </span>
-                ))}
-                {day.absences.map((absence) => (
-                    <span key={absence.id} className="block truncate rounded bg-orange-50 px-1 text-xs text-orange-800">
-                        {absence.name}
-                    </span>
-                ))}
+                {shown.map((item) =>
+                    item.kind === 'event' ? (
+                        <span key={item.key} className="block truncate rounded bg-blue-100 px-1 text-xs font-medium text-blue-900">
+                            {item.label}
+                        </span>
+                    ) : (
+                        <span key={item.key} className="block truncate rounded bg-orange-50 px-1 text-xs text-orange-800">
+                            {item.label}
+                        </span>
+                    ),
+                )}
+                {hidden.length > 0 && <span className="block px-1 text-xs font-semibold text-gray-600">{hiddenLabel}</span>}
             </span>
         </button>
     );
