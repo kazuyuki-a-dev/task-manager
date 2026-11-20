@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\LoginController;
+use App\Http\Controllers\Admin\MemberController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\BoardController;
@@ -36,6 +37,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     Route::middleware(EnsureAdminSession::class)->group(function () {
         Route::get('/', fn () => Inertia::render('admin/Home'))->name('home');
+
+        // 社員の登録（R-07）
+        Route::get('/members', [MemberController::class, 'index'])->name('members.index');
+        Route::post('/members', [MemberController::class, 'store'])->name('members.store');
+        Route::patch('/members/{member}', [MemberController::class, 'update'])->name('members.update');
+        Route::delete('/members/{member}', [MemberController::class, 'destroy'])->name('members.destroy');
 
         // 取引会社（R-14）
         Route::get('/companies', [CompanyController::class, 'index'])->name('companies.index');
