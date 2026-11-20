@@ -36,6 +36,24 @@ class ProductionOrder extends Model
     }
 
     /**
+     * 作業を始められない理由（D-029）。始められるときは空
+     *
+     * @return list<string>
+     */
+    public function startBlockers(): array
+    {
+        $reasons = [];
+        if ($this->material_ready_date === null) {
+            $reasons[] = '材料集結日を入れると始められます';
+        }
+        if ($this->assignees->isEmpty()) {
+            $reasons[] = '担当を足すと始められます';
+        }
+
+        return $reasons;
+    }
+
+    /**
      * 状態を変え、始めた日・完了した日も合わせて直す（D-017・D-024・D-025）。
      * 変えてよいかは、呼ぶ前に OrderStatus::canChangeTo で確かめておく
      */

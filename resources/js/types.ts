@@ -38,6 +38,8 @@ export type Order = {
     assignees: Member[];
     status: OrderStatus;
     isDummy: boolean;
+    /** 作業を始められない理由（材料集結日が未定・担当が未割り当て）。始められるときは空 */
+    startBlockers: string[];
     /** 最後に直された日時。ほかの端末の直しを上書きしないために、直すときに一緒に送る */
     version: string;
 };

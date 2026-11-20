@@ -117,6 +117,10 @@ function StatusSection({ order, onClose }: { order: Order; onClose: () => void }
         });
     };
 
+    // 未着手から始めるときだけ、材料集結日と担当がそろっているか見る（D-029）
+    const blockedFor = (action: StatusAction) =>
+        order.status === 'not_started' && action.next === 'in_progress' && order.startBlockers.length > 0;
+
     return (
         <section>
             <SectionTitle>状態</SectionTitle>
@@ -127,13 +131,20 @@ function StatusSection({ order, onClose }: { order: Order; onClose: () => void }
                         key={action.next}
                         type="button"
                         onClick={() => change(action)}
-                        disabled={processing}
+                        disabled={processing || blockedFor(action)}
                         className={`rounded-lg px-4 py-2.5 text-sm font-bold disabled:opacity-50 ${action.style}`}
                     >
                         {action.label}
                     </button>
                 ))}
             </div>
+            {order.status === 'not_started' && order.startBlockers.length > 0 && (
+                <ul className="mt-2 space-y-0.5 text-right text-sm font-medium text-amber-800">
+                    {order.startBlockers.map((reason) => (
+                        <li key={reason}>{reason}</li>
+                    ))}
+                </ul>
+            )}
         </section>
     );
 }

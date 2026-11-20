@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Enums\OrderStatus;
 use App\Models\ProductionOrder;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -23,7 +25,7 @@ class OrderStatusTest extends TestCase
     public function test_starting_work_records_the_start_time(): void
     {
         $this->travelTo(Carbon::parse('2026-11-20 09:15:00'));
-        $order = ProductionOrder::factory()->status(OrderStatus::NotStarted)->create();
+        $order = ProductionOrder::factory()->status(OrderStatus::NotStarted)->withAssignee()->create();
 
         $this->changeStatus($order, 'in_progress')->assertRedirect('/')->assertSessionHasNoErrors();
 
@@ -84,11 +86,50 @@ class OrderStatusTest extends TestCase
     /**
      * 担当に入っていない指示も、だれでも変えられる（D-023）
      */
-    public function test_anyone_can_change_an_order_without_assignees_or_login(): void
+    public function test_anyone_can_start_work_without_login(): void
     {
-        $order = ProductionOrder::factory()->status(OrderStatus::NotStarted)->create();
-        $this->assertCount(0, $order->assignees);
+        $order = ProductionOrder::factory()->status(OrderStatus::NotStarted)->withAssignee()->create();
         $this->assertGuest();
+
+        $this->changeStatus($order, 'in_progress')->assertSessionHasNoErrors();
+
+        $this->assertSame(OrderStatus::InProgress, $order->refresh()->status);
+    }
+
+    /**
+     * 材料集結日が未定か、担当が未割り当てなら、作業を始められない（D-029）
+     *
+     * @return array<string, array{bool, bool, string}>
+     */
+    public static function notReadyToStart(): array
+    {
+        return [
+            '担当が未割り当て' => [true, false, 'まだ作業を始められません。担当を足すと始められます。'],
+            '材料集結日が未定' => [false, true, 'まだ作業を始められません。材料集結日を入れると始められます。'],
+            'どちらも' => [false, false, 'まだ作業を始められません。材料集結日を入れると始められます。担当を足すと始められます。'],
+        ];
+    }
+
+    #[DataProvider('notReadyToStart')]
+    public function test_work_cannot_start_without_material_date_or_assignees(bool $hasMaterialDate, bool $hasAssignee, string $message): void
+    {
+        $factory = ProductionOrder::factory()->status(OrderStatus::NotStarted)
+            ->state(['material_ready_date' => $hasMaterialDate ? '2026-11-18' : null]);
+        $order = ($hasAssignee ? $factory->withAssignee() : $factory)->create();
+
+        $this->changeStatus($order, 'in_progress')->assertSessionHasErrors(['status' => $message]);
+
+        $order->refresh();
+        $this->assertSame(OrderStatus::NotStarted, $order->status);
+        $this->assertNull($order->started_at);
+    }
+
+    /**
+     * 完了から作業中に戻すときは、担当や材料集結日がなくても戻せる（D-029 は始めるときだけ）
+     */
+    public function test_reopening_a_done_order_does_not_require_material_date_or_assignees(): void
+    {
+        $order = ProductionOrder::factory()->status(OrderStatus::Done)->create(['material_ready_date' => null]);
 
         $this->changeStatus($order, 'in_progress')->assertSessionHasNoErrors();
 
@@ -110,8 +151,9 @@ class OrderStatusTest extends TestCase
         $this->assertNull($order->started_at);
         $this->assertNull($order->completed_at);
 
+        $order->assignees()->attach(User::factory()->create());
         $this->travelTo(Carbon::parse('2026-11-20 13:00:00'));
-        $this->changeStatus($order, 'in_progress');
+        $this->changeStatus($order, 'in_progress')->assertSessionHasNoErrors();
         $this->assertSame('2026-11-20 13:00:00', $order->refresh()->started_at->toDateTimeString());
     }
 

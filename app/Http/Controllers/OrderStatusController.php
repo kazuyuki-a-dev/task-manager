@@ -33,6 +33,16 @@ class OrderStatusController extends Controller
                 ]);
             }
 
+            // 未着手から作業を始めるときは、材料集結日と担当がそろっていること（D-029）
+            if ($order->status === OrderStatus::NotStarted && $next === OrderStatus::InProgress) {
+                $blockers = $order->startBlockers();
+                if ($blockers !== []) {
+                    throw ValidationException::withMessages([
+                        'status' => 'まだ作業を始められません。'.implode('。', $blockers).'。',
+                    ]);
+                }
+            }
+
             $order->changeStatus($next);
         });
 

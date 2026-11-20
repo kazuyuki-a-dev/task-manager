@@ -87,6 +87,7 @@ class BoardTest extends TestCase
                 ->where('assignees', [['id' => $yamada->id, 'name' => '山田 太郎']])
                 ->where('status', 'in_progress')
                 ->where('isDummy', false)
+                ->where('startBlockers', [])
                 ->where('version', $order->refresh()->updated_at->toIso8601String())
             )
         );
@@ -123,6 +124,8 @@ class BoardTest extends TestCase
             ->where('columns.0.orders.0.assignees', [])
             ->where('columns.0.orders.0.productCode', null)
             ->where('columns.0.orders.0.materialReadyDate', null)
+            // 材料集結日も担当もないので、作業を始められない理由が2つ出る（D-029）
+            ->where('columns.0.orders.0.startBlockers', ['材料集結日を入れると始められます', '担当を足すと始められます'])
         );
     }
 
