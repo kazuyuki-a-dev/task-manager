@@ -16,10 +16,3 @@ export function deadlineText(daysLeft: number): string {
     if (daysLeft === 0) return '今日まで';
     return `あと${daysLeft}日`;
 }
-
-/** 'YYYY-MM-DD HH:mm' を「11/20(金) 9:15」の形にする */
-export function formatDateTime(value: string): string {
-    const [date, time] = value.split(' ');
-    const [hour, minute] = time.split(':');
-    return `${formatDate(date)} ${Number(hour)}:${minute}`;
-}

@@ -1,7 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import Modal from '../components/Modal';
-import { formatDate, formatDateTime } from '../lib/date';
+import { formatDate } from '../lib/date';
 import type { PageErrors } from '../types';
 
 type ProductCard = {
@@ -13,8 +13,8 @@ type ProductCard = {
     doneCount: number;
     /** 総台数（完了した指示の数量の合計） */
     doneQuantity: number;
-    /** 'YYYY-MM-DD HH:mm'。最後に完了した日時 */
-    lastCompletedAt: string;
+    /** 'YYYY-MM-DD'。最後に完了した日（時刻は出さない） */
+    lastCompletedOn: string;
     isDummy: boolean;
 };
 
@@ -121,7 +121,7 @@ export default function History({ q, companyId, companies, products, selected, e
                                                 {product.code && `・${product.code}`}
                                             </span>
                                             <span className="block truncate font-semibold text-gray-900">{product.name}</span>
-                                            <span className="block text-sm text-gray-500">最後の完了 {formatDateTime(product.lastCompletedAt)}</span>
+                                            <span className="block text-sm text-gray-500">最後の完了 {formatDate(product.lastCompletedOn)}</span>
                                         </span>
                                         <span className="flex shrink-0 items-end gap-3 text-right">
                                             <span>

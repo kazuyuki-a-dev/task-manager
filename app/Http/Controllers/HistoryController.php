@@ -106,7 +106,8 @@ class HistoryController extends Controller
                 'name' => $product->name,
                 'doneCount' => $product->done_count,
                 'doneQuantity' => (int) $product->done_quantity,
-                'lastCompletedAt' => Carbon::parse($product->last_completed_at)->format('Y-m-d H:i'),
+                // 最後に完了した日。時刻は出さない
+                'lastCompletedOn' => Carbon::parse($product->last_completed_at)->toDateString(),
                 'isDummy' => $product->is_dummy,
             ])->all(),
             'total' => $page->total(),

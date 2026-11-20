@@ -57,8 +57,8 @@ class HistoryTest extends TestCase
 
         $this->get('/history')->assertInertia(fn (Assert $page) => $page
             ->where('products.total', 2)
-            ->where('products.data.0', ['id' => $new->id, 'companyName' => 'ダミー東和工業', 'code' => null, 'name' => '最近完了', 'doneCount' => 1, 'doneQuantity' => 100, 'lastCompletedAt' => '2026-11-19 09:15', 'isDummy' => false])
-            ->where('products.data.1', ['id' => $old->id, 'companyName' => 'ダミー東和工業', 'code' => 'AA-0001', 'name' => '前に完了', 'doneCount' => 2, 'doneQuantity' => 75, 'lastCompletedAt' => '2026-11-12 16:30', 'isDummy' => false])
+            ->where('products.data.0', ['id' => $new->id, 'companyName' => 'ダミー東和工業', 'code' => null, 'name' => '最近完了', 'doneCount' => 1, 'doneQuantity' => 100, 'lastCompletedOn' => '2026-11-19', 'isDummy' => false])
+            ->where('products.data.1', ['id' => $old->id, 'companyName' => 'ダミー東和工業', 'code' => 'AA-0001', 'name' => '前に完了', 'doneCount' => 2, 'doneQuantity' => 75, 'lastCompletedOn' => '2026-11-12', 'isDummy' => false])
             ->where('selected', null)
         );
     }
