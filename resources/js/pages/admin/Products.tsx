@@ -202,15 +202,16 @@ function Row({ product, companies, showCompany }: { product: ProductRow; compani
     return (
         <li className="flex flex-wrap items-center gap-x-4 gap-y-2 p-3">
             <span className="w-28 shrink-0 text-sm text-gray-500">{product.code}</span>
-            <span className="min-w-0 flex-1 font-medium text-gray-900">
+            {/* 品名の場所は10文字ぶんより狭くしない。足りないときは、指示の数とボタンを次の行に送る（#54） */}
+            <span className="min-w-0 flex-1 basis-40 font-medium text-gray-900">
                 {product.name}
-                {product.isDummy && <span className="ml-2 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800">ダミー</span>}
+                {product.isDummy && <span className="ml-2 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium whitespace-nowrap text-yellow-800">ダミー</span>}
                 {/* すべての会社を出しているときだけ、どの会社の製品かを出す */}
                 {showCompany && <span className="block text-sm font-normal text-gray-500">{product.companyName}</span>}
             </span>
-            <span className="text-sm text-gray-600">指示 {product.ordersCount}件</span>
+            <span className="text-sm whitespace-nowrap text-gray-600">指示 {product.ordersCount}件</span>
             <div className="flex gap-2">
-                <button type="button" onClick={() => setEditing(true)} className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50">
+                <button type="button" onClick={() => setEditing(true)} className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold whitespace-nowrap text-gray-800 hover:bg-gray-50">
                     直す
                 </button>
                 {/* 指示に使ったことがない製品だけ消せる */}

@@ -56,7 +56,7 @@ export default function Members({ members }: { members: MemberRow[] }) {
                                         <span className="block truncate font-semibold text-gray-900">{member.name}</span>
                                         {member.isSelf && <span className="text-sm text-gray-500">（自分）</span>}
                                         {member.isDummy && (
-                                            <span className="ml-1 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800">ダミー</span>
+                                            <span className="ml-1 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium whitespace-nowrap text-yellow-800">ダミー</span>
                                         )}
                                     </span>
                                     <span

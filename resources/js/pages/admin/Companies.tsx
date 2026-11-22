@@ -49,7 +49,7 @@ export default function Companies({ companies }: { companies: CompanyRow[] }) {
                                         <span className="min-w-0">
                                             <span className="block truncate font-semibold text-gray-900">{company.name}</span>
                                             {company.isDummy && (
-                                                <span className="mt-1 inline-block rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800">
+                                                <span className="mt-1 inline-block rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium whitespace-nowrap text-yellow-800">
                                                     ダミー
                                                 </span>
                                             )}

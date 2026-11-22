@@ -234,11 +234,14 @@ function HistoryModal({ selected, errors, onClose }: { selected: Selected; error
             ) : (
                 <ul className="divide-y divide-gray-100">
                     {selected.orders.map((order) => (
-                        <li key={order.id} className="flex items-center gap-3 py-2 text-sm">
-                            <span className="w-14 shrink-0 font-semibold text-gray-900">{order.dueDate.slice(0, 4)}年</span>
-                            <span className="w-28 shrink-0 text-gray-900">納期 {formatDate(order.dueDate)}</span>
-                            {/* 納期の右に、注文時の台数 */}
-                            <span className="min-w-0 flex-1 text-right font-medium text-gray-900">{order.quantity.toLocaleString()}台</span>
+                        // 狭い画面（スマホ）では、ボタンを次の行の右に送る（#54）
+                        <li key={order.id} className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 py-2 text-sm">
+                            <span className="flex min-w-0 flex-1 basis-56 items-center gap-3">
+                                <span className="w-14 shrink-0 font-semibold text-gray-900">{order.dueDate.slice(0, 4)}年</span>
+                                <span className="w-28 shrink-0 text-gray-900">納期 {formatDate(order.dueDate)}</span>
+                                {/* 納期の右に、注文時の台数 */}
+                                <span className="min-w-0 flex-1 text-right font-medium whitespace-nowrap text-gray-900">{order.quantity.toLocaleString()}台</span>
+                            </span>
                             <button
                                 type="button"
                                 onClick={() => setMembersOf(order)}

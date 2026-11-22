@@ -66,19 +66,20 @@ export default function Calendar({ month, prevMonth, nextMonth, today, days, mem
 
                 <main className="mx-auto max-w-6xl space-y-3 p-4">
                     <div className="flex items-center justify-between gap-3">
-                        <button type="button" onClick={() => go(prevMonth)} className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50">
+                        {/* スマホでも1行に収まるように、文字を折り返さず、余白と月の文字を少し小さくする（#54） */}
+                        <button type="button" onClick={() => go(prevMonth)} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold whitespace-nowrap text-gray-800 hover:bg-gray-50 sm:px-4">
                             ＜ 前の月
                         </button>
-                        <h2 className="text-2xl font-bold text-gray-900">
+                        <h2 className="text-xl font-bold whitespace-nowrap text-gray-900 sm:text-2xl">
                             {year}年{monthNumber}月
                         </h2>
-                        <button type="button" onClick={() => go(nextMonth)} className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50">
+                        <button type="button" onClick={() => go(nextMonth)} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold whitespace-nowrap text-gray-800 hover:bg-gray-50 sm:px-4">
                             次の月 ＞
                         </button>
                     </div>
 
                     {/* 色の見かた。色だけでなく、行事には「■」を付けて見分けられるようにする */}
-                    <p className="flex gap-4 text-sm text-gray-600">
+                    <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
                         <span className="rounded bg-blue-100 px-1.5 text-blue-900">■ 行事</span>
                         <span className="rounded bg-orange-50 px-1.5 text-orange-800">休みのメンバー</span>
                         <span className="rounded bg-rose-100 px-1.5 text-rose-900">休 会社の休み</span>
