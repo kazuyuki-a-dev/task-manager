@@ -35,6 +35,10 @@ class LoginController extends Controller
                 ->get(['id', 'name'])
                 ->map(fn (User $user) => ['id' => $user->id, 'name' => $user->name])
                 ->all(),
+            // お試し用のデモのときだけ、入り方を出す（D-048）。ダミーデータだけなので、パスワードを出してよい
+            'demoLogin' => config('demo.enabled')
+                ? ['name' => config('demo.admin_name'), 'password' => config('demo.admin_password')]
+                : null,
         ]);
     }
 

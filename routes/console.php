@@ -15,4 +15,6 @@ Artisan::command('inspire', function () {
 Schedule::command('backup:database --if-due')
     ->everyFiveMinutes()
     // 前のバックアップがまだ終わっていなければ、重ねて動かさない
-    ->withoutOverlapping();
+    ->withoutOverlapping()
+    // お試し用のデモでは動かさない（D-048。データは起動のたびに作り直すので、とっておく意味がない）
+    ->skip(fn () => (bool) config('demo.enabled'));

@@ -88,4 +88,6 @@ export type SharedProps = {
     admin: Member | null;
     /** 画面の上に一度だけ出すお知らせ */
     notice: string | null;
+    /** お試し用のデモか（D-048） */
+    demo: boolean;
 };

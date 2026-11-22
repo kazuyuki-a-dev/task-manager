@@ -41,6 +41,8 @@ class HandleInertiaRequests extends Middleware
             'admin' => fn () => EnsureAdminSession::isActive($request) ? $request->user()->only(['id', 'name']) : null,
             // 画面の上に一度だけ出すお知らせ（10分で管理者の操作を終えたときなど）
             'notice' => fn () => $request->session()->get('notice'),
+            // お試し用のデモか（D-048）。ログインの画面の入り方や、バックアップの表示を切りかえる
+            'demo' => (bool) config('demo.enabled'),
         ];
     }
 }

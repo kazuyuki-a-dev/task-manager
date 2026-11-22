@@ -24,6 +24,13 @@ class BackupDatabase extends Command
 
     public function handle(): int
     {
+        // お試し用のデモでは止めている（D-048）
+        if (config('demo.enabled')) {
+            $this->info('お試し用のデモでは、バックアップを止めています');
+
+            return self::SUCCESS;
+        }
+
         $dir = config('backup.path');
 
         if ($this->option('if-due')) {
