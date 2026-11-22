@@ -98,7 +98,7 @@ function OrderCard({ order, onOpen }: { order: Order; onOpen: () => void }) {
                             {order.productCode && `・${order.productCode}`}
                         </span>
                         {order.isDummy && (
-                            <span className="shrink-0 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium text-yellow-800">
+                            <span className="shrink-0 rounded bg-yellow-100 px-1.5 py-0.5 text-xs font-medium whitespace-nowrap text-yellow-800">
                                 ダミー
                             </span>
                         )}
@@ -186,8 +186,9 @@ export default function Board({ columns, alerts, today, members, products, error
         <>
             <Head title="進み具合のボード" />
             <div className="min-h-screen bg-gray-50">
-                <header className="flex items-center justify-between gap-4 border-b border-gray-200 bg-white px-4 py-3">
-                    <div className="flex items-baseline gap-3">
+                {/* 狭い画面（スマホ）では、ボタンを次の行に送る。ボタンの文字は折り返さない（#54） */}
+                <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-gray-200 bg-white px-4 py-3">
+                    <div className="flex flex-wrap items-baseline gap-x-3">
                         <h1 className="text-xl font-semibold text-gray-900">進み具合のボード</h1>
                         <span className="text-sm text-gray-600">今日 {formatDate(today)}</span>
                     </div>
@@ -195,21 +196,21 @@ export default function Board({ columns, alerts, today, members, products, error
                         {/* 完了した指示はボードに出さず、履歴の画面で見る（D-016） */}
                         <Link
                             href="/history"
-                            className="rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800"
+                            className="rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold whitespace-nowrap text-white hover:bg-green-800"
                         >
                             完了の履歴
                         </Link>
                         {/* 会社カレンダー（R-13） */}
                         <Link
                             href="/calendar"
-                            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+                            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold whitespace-nowrap text-gray-800 hover:bg-gray-50"
                         >
                             カレンダー
                         </Link>
                         {/* 管理者の画面へ。パスワードを入れていなければ、パスワードの画面が出る（R-06） */}
                         <Link
                             href="/admin"
-                            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+                            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold whitespace-nowrap text-gray-800 hover:bg-gray-50"
                         >
                             管理者
                         </Link>
@@ -218,7 +219,8 @@ export default function Board({ columns, alerts, today, members, products, error
 
                 <AlertSummary alerts={alerts} onOpen={(order) => setOpenOrderId(order.id)} />
 
-                <main className="grid gap-4 p-4 md:grid-cols-2">
+                {/* 列は画面の幅まで。長い品名に合わせて広がって、スマホで画面からはみ出さないようにする（#54） */}
+                <main className="grid grid-cols-[minmax(0,1fr)] gap-4 p-4 md:grid-cols-2">
                     {columns.map((column) => (
                         <section key={column.status} aria-labelledby={`column-${column.status}`}>
                             <h2
