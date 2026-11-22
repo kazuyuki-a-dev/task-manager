@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Product;
+use App\Support\Like;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -33,9 +34,10 @@ class ProductController extends Controller
             ->withCount('orders')
             ->when($companyId !== null, fn ($query) => $query->where('company_id', $companyId))
             ->when($q !== '', function ($query) use ($q) {
-                // 「%」や「_」を打っても、何にでも合う印として扱われないようにする
-                $like = '%'.addcslashes($q, '%_\\').'%';
-                $query->where(fn ($w) => $w->where('code', 'like', $like)->orWhere('name', 'like', $like));
+                // 「%」や「_」を打っても、何にでも合う印として扱われないようにする（Like）
+                $query->where(fn ($w) => $w
+                    ->where(fn ($x) => Like::where($x, 'code', $q))
+                    ->orWhere(fn ($x) => Like::where($x, 'name', $q)));
             })
             // 品番のあるものを先に、品番の順。品番のないものは最後に品名の順
             ->orderByRaw('code IS NULL')

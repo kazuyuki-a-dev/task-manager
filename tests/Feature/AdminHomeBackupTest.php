@@ -120,6 +120,7 @@ class AdminHomeBackupTest extends TestCase
      */
     public function test_a_new_backup_appears_on_the_admin_page(): void
     {
+        $this->skipUnlessMysql();
         $this->artisan('backup:database')->assertSuccessful();
 
         $this->asAdmin()->get('/admin')->assertInertia(fn (Assert $page) => $page

@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\Product;
 use App\Models\ProductionOrder;
 use App\Models\User;
+use App\Support\Like;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -86,12 +87,11 @@ class HistoryController extends Controller
             ->withSum(['orders as done_quantity' => $done], 'quantity')
             ->withMax(['orders as last_completed_at' => $done], 'completed_at')
             ->when($q !== '', function (Builder $query) use ($q) {
-                // 「%」や「_」を打っても、何にでも合う印として扱われないようにする
-                $like = '%'.addcslashes($q, '%_\\').'%';
+                // 「%」や「_」を打っても、何にでも合う印として扱われないようにする（Like）
                 $query->where(fn (Builder $w) => $w
-                    ->where('name', 'like', $like)
-                    ->orWhere('code', 'like', $like)
-                    ->orWhereHas('company', fn (Builder $c) => $c->where('name', 'like', $like)));
+                    ->where(fn (Builder $x) => Like::where($x, 'name', $q))
+                    ->orWhere(fn (Builder $x) => Like::where($x, 'code', $q))
+                    ->orWhereHas('company', fn (Builder $c) => Like::where($c, 'name', $q)));
             })
             ->orderByDesc('last_completed_at')
             ->orderBy('id')
