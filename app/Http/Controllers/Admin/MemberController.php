@@ -80,6 +80,10 @@ class MemberController extends Controller
 
         $role = UserRole::from($validated['role']);
 
+        if (self::isProtectedDemoAdmin($member)) {
+            $this->ensureDemoAdminUnchanged($member, $validated, $role);
+        }
+
         DB::transaction(function () use ($request, $member, $validated, $role) {
             if ($role === UserRole::Worker && $member->role === UserRole::Admin) {
                 $this->ensureAdminRemains($request, $member, 'role', '作業者にする');
@@ -105,6 +109,12 @@ class MemberController extends Controller
     public function destroy(Request $request, User $member): RedirectResponse
     {
         $this->ensureNotDeleted($member);
+
+        if (self::isProtectedDemoAdmin($member)) {
+            throw ValidationException::withMessages([
+                'member' => self::DEMO_ADMIN_MESSAGE,
+            ]);
+        }
 
         DB::transaction(function () use ($request, $member) {
             if ($member->role === UserRole::Admin) {
@@ -139,6 +149,42 @@ class MemberController extends Controller
             throw ValidationException::withMessages([
                 $field => "管理者が1人だけなので、{$action}ことはできません。先にほかの管理者を足してください。",
             ]);
+        }
+    }
+
+    /**
+     * お試し用のデモで、ダミー管理者を直そうとしたときの知らせ
+     */
+    private const DEMO_ADMIN_MESSAGE = 'お試し用のデモなので、ダミー管理者の名前・パスワード・役割は変えられず、消すこともできません。ほかの社員で試してください。';
+
+    /**
+     * お試し用のデモで守るダミー管理者か（D-051）。
+     * だれかが名前・パスワードを変えたり、作業者にしたり消したりすると、ログインの画面の入り方で、ほかの人が管理者の画面に入れなくなるため
+     */
+    private static function isProtectedDemoAdmin(User $member): bool
+    {
+        return config('demo.enabled')
+            && $member->is_dummy
+            && $member->role === UserRole::Admin
+            && $member->name === config('demo.admin_name');
+    }
+
+    /**
+     * ダミー管理者は、名前・パスワード・役割を変えられない。同じ値のまま保存するのはよい
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function ensureDemoAdminUnchanged(User $member, array $validated, UserRole $role): void
+    {
+        $changed = match (true) {
+            $validated['name'] !== $member->name => 'name',
+            $role !== UserRole::Admin => 'role',
+            ($validated['password'] ?? null) !== null => 'password',
+            default => null,
+        };
+
+        if ($changed !== null) {
+            throw ValidationException::withMessages([$changed => self::DEMO_ADMIN_MESSAGE]);
         }
     }
 

@@ -32,7 +32,17 @@ function agoText(hours: number): string {
  * 最後のバックアップ（R-09・D-046）。とれていれば緑、1日以上とれていなければ赤で知らせる。
  * 失敗した理由は画面には出さない（storage/logs/laravel.log を見る）
  */
-function BackupStatus({ backup }: { backup: Backup | null }) {
+function BackupStatus({ backup, stopped }: { backup: Backup | null; stopped: boolean }) {
+    // お試し用のデモでは、バックアップを止めている（D-048）
+    if (stopped) {
+        return (
+            <section className="mb-6 rounded-lg border-2 border-gray-300 bg-gray-100 px-4 py-3">
+                <p className="font-bold text-gray-800">バックアップ：お試し用のデモでは止めています</p>
+                <p className="mt-1 text-sm text-gray-700">デモのデータは、しばらくすると元に戻るためです。</p>
+            </section>
+        );
+    }
+
     if (backup === null || backup.isStale) {
         return (
             <section role="alert" className="mb-6 rounded-lg border-2 border-red-400 bg-red-50 px-4 py-3">
@@ -60,10 +70,10 @@ function BackupStatus({ backup }: { backup: Backup | null }) {
 }
 
 /** 管理者の画面の入口（R-06） */
-export default function Home({ backup }: { backup: Backup | null }) {
+export default function Home({ backup, backupStopped }: { backup: Backup | null; backupStopped: boolean }) {
     return (
         <AdminLayout title="管理者の画面">
-            <BackupStatus backup={backup} />
+            <BackupStatus backup={backup} stopped={backupStopped} />
             <p className="mb-4 text-gray-700">10分操作がないと、管理者の操作は自動で終わります。</p>
             <ul className="grid gap-3 sm:grid-cols-2">
                 {MENU.map((item) => (

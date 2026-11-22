@@ -20,6 +20,7 @@ class BackupCommandTest extends TestCase
 
     protected function setUp(): void
     {
+        $this->skipUnlessMysql();
         parent::setUp();
         // テストのたびに、まだない保存先を使う（フォルダがなければ作ることも確かめる）
         $this->dir = storage_path('framework/testing/backups-'.uniqid());
@@ -28,7 +29,10 @@ class BackupCommandTest extends TestCase
 
     protected function tearDown(): void
     {
-        File::deleteDirectory($this->dir);
+        // SQLite で飛ばしたときは、保存先を決める前に終わっている
+        if (isset($this->dir)) {
+            File::deleteDirectory($this->dir);
+        }
         parent::tearDown();
     }
 

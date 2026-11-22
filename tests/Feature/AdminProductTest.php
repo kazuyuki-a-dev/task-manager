@@ -107,6 +107,9 @@ class AdminProductTest extends TestCase
             '品番と品名の両方に合う' => ['FL', ['フランジ']],
             'どれにも合わない' => ['ないもの', []],
             '「%」は何にでも合う印にしない' => ['%', ['割合100%カバー']],
+            '「_」は1文字に合う印にしない' => ['_', ['ネジ_M8']],
+            '「!」もその文字として探す' => ['!', ['特注!品']],
+            '「!%」も、その2文字として探す' => ['!%', []],
         ];
     }
 
@@ -119,6 +122,8 @@ class AdminProductTest extends TestCase
         Product::factory()->create(['code' => 'SH-0660', 'name' => 'シャフト']);
         Product::factory()->create(['code' => 'FL-0100', 'name' => 'フランジ']);
         Product::factory()->withoutCode()->create(['name' => '割合100%カバー']);
+        Product::factory()->withoutCode()->create(['name' => 'ネジ_M8']);
+        Product::factory()->withoutCode()->create(['name' => '特注!品']);
 
         $this->asAdmin()->get('/admin/products?q='.urlencode($q))->assertInertia(fn (Assert $page) => $page
             ->where('q', $q)

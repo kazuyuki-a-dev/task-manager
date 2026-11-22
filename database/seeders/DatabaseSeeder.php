@@ -21,7 +21,8 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // 職場の人数（約20人）に合わせて、管理者1人・作業者19人
-        User::factory()->admin()->dummy()->create(['name' => 'ダミー管理者']);
+        // 名前は、デモのログインの画面に出す名前と同じ（config/demo.php）
+        User::factory()->admin()->dummy()->create(['name' => config('demo.admin_name')]);
         $workers = User::factory()->count(19)->dummy()->create();
 
         // 取引会社4社。本物の会社名は使わず、かならず「ダミー」を付ける（D-033）

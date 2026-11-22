@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\DateOnly;
 use App\Enums\OrderLogAction;
 use App\Enums\OrderStatus;
 use Database\Factories\ProductionOrderFactory;
@@ -28,8 +29,8 @@ class ProductionOrder extends Model
     {
         return [
             'quantity' => 'integer',
-            'material_ready_date' => 'date',
-            'due_date' => 'date',
+            'material_ready_date' => DateOnly::class,
+            'due_date' => DateOnly::class,
             'status' => OrderStatus::class,
             'started_at' => 'datetime',
             'completed_at' => 'datetime',

@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use App\Casts\DateOnly;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
-
-use Carbon\CarbonInterface;
 
 /**
  * 会社の休みの決まりとちがう日（R-13・D-042・D-043）。
@@ -29,7 +29,7 @@ class CompanyHoliday extends Model
     protected function casts(): array
     {
         return [
-            'date' => 'date',
+            'date' => DateOnly::class,
             'is_holiday' => 'boolean',
         ];
     }

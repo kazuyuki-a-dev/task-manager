@@ -4,10 +4,12 @@ import type { Member, SharedProps } from '../../types';
 type Props = {
     /** 選べる管理者（使える人だけ） */
     admins: Member[];
+    /** お試し用のデモのときだけ、入り方（D-048）。デモでなければ null */
+    demoLogin: { name: string; password: string } | null;
 };
 
 /** 管理者のパスワードを入れる画面（R-06） */
-export default function Login({ admins }: Props) {
+export default function Login({ admins, demoLogin }: Props) {
     const { notice } = usePage<SharedProps>().props;
     const form = useForm({
         // 管理者が1人だけなら、はじめから選んでおく
@@ -39,6 +41,15 @@ export default function Login({ admins }: Props) {
                         <p role="status" className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
                             {notice}
                         </p>
+                    )}
+
+                    {demoLogin && (
+                        <section className="mb-4 rounded-lg border border-blue-300 bg-blue-50 px-4 py-3 text-blue-900">
+                            <p className="font-bold">お試し用のデモの入り方</p>
+                            <p className="mt-1">
+                                名前：{demoLogin.name}／パスワード：<span className="font-mono">{demoLogin.password}</span>
+                            </p>
+                        </section>
                     )}
 
                     <form onSubmit={submit} className="space-y-4 rounded-lg border border-gray-200 bg-white p-4">

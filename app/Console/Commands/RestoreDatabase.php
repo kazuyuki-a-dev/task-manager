@@ -19,6 +19,13 @@ class RestoreDatabase extends Command
 
     public function handle(): int
     {
+        // お試し用のデモでは止めている（D-048）
+        if (config('demo.enabled')) {
+            $this->info('お試し用のデモでは、バックアップから戻すのを止めています');
+
+            return self::SUCCESS;
+        }
+
         $file = $this->argument('file');
         // 名前だけのときは、保存先のフォルダの中をさがす
         if (! File::exists($file)) {

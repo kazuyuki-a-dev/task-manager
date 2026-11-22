@@ -121,7 +121,8 @@ class CalendarTest extends TestCase
         DB::disableQueryLog();
 
         foreach (['absences', 'calendar_events', 'company_holidays'] as $table) {
-            $query = $queries->first(fn ($q) => str_contains($q['query'], "from `{$table}`"));
+            // 表の名前のかこみ方は、MySQL は `、SQLite は " なので、どちらでも見つける
+            $query = $queries->first(fn ($q) => preg_match('/from [`"]'.$table.'[`"]/', $q['query']) === 1);
             $this->assertNotNull($query, "{$table} を読んでいない");
             $this->assertStringContainsString('between', $query['query']);
             $this->assertSame(['2026-11-29', '2027-01-02'], $query['bindings']);

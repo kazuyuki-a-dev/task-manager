@@ -14,6 +14,11 @@ class HomeController extends Controller
 {
     public function __invoke(): Response
     {
+        // お試し用のデモでは、バックアップを止めている（D-048）。「まだバックアップがありません」と赤く出さないように、べつに知らせる
+        if (config('demo.enabled')) {
+            return Inertia::render('admin/Home', ['backup' => null, 'backupStopped' => true]);
+        }
+
         $latest = BackupFiles::latest(config('backup.path'));
 
         return Inertia::render('admin/Home', [
@@ -25,6 +30,7 @@ class HomeController extends Controller
                 // 決めた時間（初期値25時間）より前なら、赤く知らせる
                 'isStale' => $latest['takenAt']->lt(now()->subHours(config('backup.stale_hours'))),
             ],
+            'backupStopped' => false,
         ]);
     }
 }
