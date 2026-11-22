@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/kazuyuki-a-dev/task-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/kazuyuki-a-dev/task-manager/actions/workflows/ci.yml)
 
-約20人の製造業の職場で、「だれが何をやっているか」と「締め切り」がひと目で分かり、遅れる前に気づけるようにするタスク管理アプリです。今は Excel で管理している製造の指示を置きかえることを目指しています。
+約20人の製造業の職場で、「だれが何をやっているか」と「締め切り」がひと目で分かり、遅れる前に気づけるようにするタスク管理アプリです。今は Excel で管理している製造の指示を置きかえることを目指して、サンプルとして作りました（会社の本番では使っていません）。
 
 ## お試し用のデモ
 
@@ -76,6 +76,6 @@ http://localhost を開くと画面が出ます。
 |---|---|
 | [要件定義書](docs/requirements.md) | 目的、優先度、完成の境界、要件の対応表 |
 | [決めたことの記録](docs/decisions.md) | 決めたことと、その理由 |
-| [運用の手順書](docs/operations.md) | バックアップのしくみ、戻し方、機械が決まったらやること |
+| [運用の手順書](docs/operations.md) | バックアップのしくみと戻し方（本番は行わないので、手元の開発環境での記録） |
 | [バックアップと復元の手順書](docs/backup-and-recovery.md) | ターミナルに打つものまで書いた、ステップ方式の手順（PC がこわれたときの戻し方も） |
 | [お試し用のデモ](docs/demo.md) | Render の無料プランで公開するデモの設定の手順、環境変数、確かめ方、戻し方 |
