@@ -34,7 +34,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
-          extensions: pdo_mysql
+          extensions: pdo_mysql, pdo_sqlite
           coverage: none
 
       - name: Composer のパッケージを入れる
@@ -61,11 +61,19 @@ jobs:
           cp .env.example .env
           php artisan key:generate
 
-      - name: テストを流す
+      - name: テストを流す（MySQL・手元と会社の本番と同じ）
         env:
           DB_CONNECTION: mysql
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
           DB_USERNAME: sail
           DB_PASSWORD: password
+        run: php artisan test
+
+      # お試し用のデモ（Render）は SQLite で動かすので、SQLite でも流す（D-052）。
+      # mysqldump を使うバックアップのテストは、デモでは止めているので飛ばす
+      - name: テストを流す（SQLite・お試し用のデモと同じ）
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
         run: php artisan test
